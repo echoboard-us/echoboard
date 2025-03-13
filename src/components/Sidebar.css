@@ -1,0 +1,57 @@
+.sidebar {
+    width: 220px;
+    background-color: #fff;
+    border-right: 1px solid #ddd;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 1rem;
+  }
+  
+  .sidebar-header {
+    margin-bottom: 1rem;
+  }
+  
+  .sidebar-logo {
+    color: #6a4ef9;
+    font-size: 1.5rem;
+    margin: 0;
+  }
+  
+  .sidebar-nav .nav-link {
+    display: block;
+    color: #333;
+    text-decoration: none;
+    padding: 0.5rem 0;
+    margin: 0.25rem 0;
+    border-radius: 4px;
+  }
+  
+  .sidebar-nav .nav-link:hover {
+    background-color: #f0f0f0;
+  }
+  
+  .sidebar-footer {
+    display: flex;
+    align-items: center;
+    margin-top: 2rem;
+  }
+  
+  .user-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+  }
+  
+  .user-info {
+    margin-left: 0.75rem;
+  }
+  
+  .user-name {
+    font-weight: bold;
+  }
+  
+  .user-role {
+    font-size: 0.8rem;
+    color: #888;
+  }  
