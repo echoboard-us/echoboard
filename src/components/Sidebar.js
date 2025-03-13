@@ -1,31 +1,36 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
-import './Sidebar.css'; // optional separate CSS
+import React from "react";
+import { NavLink } from "react-router-dom";
+import { FaTachometerAlt, FaClipboardList, FaLightbulb, FaChartBar } from "react-icons/fa";
+import "./Sidebar.css";
 
 const Sidebar = () => {
   return (
-    <div className="sidebar">
+    <aside className="sidebar">
+      {/* Sidebar Header */}
       <div className="sidebar-header">
         <h2 className="sidebar-logo">EchoBoard</h2>
       </div>
+
+      {/* Sidebar Navigation */}
       <nav className="sidebar-nav">
-        <Link to="/" className="nav-link">Dashboard</Link>
-        <Link to="/surveys" className="nav-link">Surveys</Link>
-        <Link to="/insights" className="nav-link">Insights</Link>
-        <Link to="/analytics" className="nav-link">Analytics</Link>
+        <NavLink to="/" className="nav-link">
+          <FaTachometerAlt className="nav-icon" />
+          <span>Dashboard</span>
+        </NavLink>
+        <NavLink to="/surveys" className="nav-link">
+          <FaClipboardList className="nav-icon" />
+          <span>Surveys</span>
+        </NavLink>
+        <NavLink to="/insights" className="nav-link">
+          <FaLightbulb className="nav-icon" />
+          <span>Insights</span>
+        </NavLink>
+        <NavLink to="/analytics" className="nav-link">
+          <FaChartBar className="nav-icon" />
+          <span>Analytics</span>
+        </NavLink>
       </nav>
-      <div className="sidebar-footer">
-        <img 
-          src="https://via.placeholder.com/40" 
-          alt="User" 
-          className="user-avatar"
-        />
-        <div className="user-info">
-          <span className="user-name">Yusuf Hilmi</span>
-          <span className="user-role">Admin</span>
-        </div>
-      </div>
-    </div>
+    </aside>
   );
 };
 

@@ -1,11 +1,9 @@
-.app-container {
-  display: flex;
-  font-family: sans-serif;
-  color: #333;
-}
-
+/* Main Content */
 .main-content {
-  flex: 1;
-  padding: 1rem 2rem;
+  margin-left: 240px; /* Pushes the content to the right */
+  padding: 2rem;
+  width: calc(100% - 240px);
+  height: 100vh;
+  overflow-y: auto; /* Enables scrolling only for the content */
   background-color: #f9f9f9;
 }

@@ -1,46 +1,33 @@
-import React from 'react';
-import './Insights.css'; // optional separate CSS
+import React from "react";
+import { FaCheckCircle, FaComments, FaUserTie, FaUsers, FaBullseye, FaAward, FaChartLine, FaSignal } from "react-icons/fa";
+import "./Insights.css";
+
+const insightsData = [
+  { icon: <FaCheckCircle />, title: "Accountability", description: "Team members feel responsible for their work and outcomes." },
+  { icon: <FaComments />, title: "Communication", description: "Clear and effective communication across teams and departments." },
+  { icon: <FaUserTie />, title: "Management", description: "Leadership effectiveness and support for team members." },
+  { icon: <FaUsers />, title: "Project Teams", description: "Collaboration and efficiency within project-specific teams." },
+  { icon: <FaBullseye />, title: "Goal Alignment", description: "Alignment between individual, team, and organizational goals." },
+  { icon: <FaAward />, title: "Recognition", description: "Acknowledgment of achievements and contributions." },
+  { icon: <FaChartLine />, title: "Professional Growth", description: "Opportunities for skill development and career advancement." },
+  { icon: <FaSignal />, title: "Work Quality", description: "Standards of excellence and quality in deliverables." },
+];
 
 const Insights = () => {
   return (
     <div className="insights-container">
       <h1>Insights</h1>
       <p className="subtitle">AI-powered analysis of your survey data</p>
-      <h2>AI-Driven Insights</h2>
+      <h2 className="section-title">AI-Driven Insights</h2>
 
       <div className="insights-grid">
-        <div className="insight-card">
-          <h3>Accountability</h3>
-          <p>Team members feel responsible for their work and outcomes.</p>
-        </div>
-        <div className="insight-card">
-          <h3>Communication</h3>
-          <p>Clear and effective communication across teams and departments.</p>
-        </div>
-        <div className="insight-card">
-          <h3>Management</h3>
-          <p>Leadership effectiveness and support for team members.</p>
-        </div>
-        <div className="insight-card">
-          <h3>Project Teams</h3>
-          <p>Collaboration and efficiency within project-specific teams.</p>
-        </div>
-        <div className="insight-card">
-          <h3>Goal Alignment</h3>
-          <p>Alignment between individual, team, and organizational goals.</p>
-        </div>
-        <div className="insight-card">
-          <h3>Recognition</h3>
-          <p>Acknowledgment of achievements and contributions.</p>
-        </div>
-        <div className="insight-card">
-          <h3>Professional Growth</h3>
-          <p>Opportunities for skill development and career advancement.</p>
-        </div>
-        <div className="insight-card">
-          <h3>Work Quality</h3>
-          <p>Standards of excellence and quality in deliverables.</p>
-        </div>
+        {insightsData.map((insight, index) => (
+          <div key={index} className="insight-card">
+            <div className="insight-icon">{insight.icon}</div>
+            <h3>{insight.title}</h3>
+            <p>{insight.description}</p>
+          </div>
+        ))}
       </div>
     </div>
   );
