@@ -17,7 +17,7 @@ const Insights = () => {
   return (
     <div className="insights-container">
       <h1>Insights</h1>
-      <p className="subtitle">AI-powered analysis of your survey data</p>
+      <p className="subtitle">AI-powered analysis of your survey data.</p>
       <h2 className="section-title">AI-Driven Insights</h2>
 
       <div className="insights-grid">

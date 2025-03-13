@@ -2,6 +2,7 @@ import React from "react";
 import { FaClock, FaUsers, FaArrowRight } from "react-icons/fa";
 import { Link } from "react-router-dom";
 import { Bar } from "react-chartjs-2";
+import { useSurveys } from "../context/SurveyContext";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -16,60 +17,13 @@ import "./Dashboard.css";
 // Register necessary Chart.js components
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
-const surveys = [
-  {
-    title: "Q2 Employee Satisfaction",
-    description:
-      "Quarterly survey to measure employee satisfaction, engagement, and gather feedback on company culture and work environment.",
-    respondents: 124,
-    status: "Active",
-    date: "2 days ago",
-  },
-  {
-    title: "Project Feedback – Mobile App",
-    description:
-      "Gathering feedback on the recent mobile app development project, focusing on team collaboration, resource allocation, and timeline management.",
-    respondents: 32,
-    status: "Completed",
-    date: "1 week ago",
-  },
-  {
-    title: "Management Effectiveness",
-    description:
-      "Assessment of management effectiveness across departments, focusing on leadership qualities, communication, and decision-making processes.",
-    respondents: 78,
-    status: "Completed",
-    date: "2 weeks ago",
-  },
-  {
-    title: "New Hire Onboarding Experience",
-    description:
-      "Survey for recent hires to evaluate the effectiveness of our onboarding process, training materials, and initial support systems.",
-    respondents: 15,
-    status: "Active",
-    date: "3 weeks ago",
-  },
-  {
-    title: "Remote Work Assessment",
-    description:
-      "Evaluation of remote work policies, tools, and practices to identify areas for improvement and ensure team productivity.",
-    respondents: 0,
-    status: "Draft",
-    date: "1 day ago",
-  },
-  {
-    title: "Customer Support Satisfaction",
-    description:
-      "Measuring customer satisfaction with our support team, response times, and issue resolution effectiveness.",
-    respondents: 210,
-    status: "Completed",
-    date: "1 month ago",
-  },
-];
-
 const Dashboard = () => {
+  const { surveys } = useSurveys();
+
   return (
     <div className="dashboard-container">
+      <h1>Dashboard</h1>
+      <p className="subtitle">Welcome to EchoBoard, your AI-driven survey and insights platform.</p>
       {/* Main Insights Section */}
       <section className="main-insights">
         <div className="insights-text">
@@ -129,8 +83,8 @@ const Dashboard = () => {
         </div>
 
         <div className="survey-cards">
-          {surveys.map((survey, index) => (
-            <div key={index} className="survey-card">
+          {surveys.slice(0, 6).map((survey) => (
+            <div key={survey.id} className="survey-card">
               <div className="survey-card-header">
                 <span className={`status ${survey.status.toLowerCase()}`}>
                   {survey.status}
