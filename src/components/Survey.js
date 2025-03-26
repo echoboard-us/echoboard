@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useSurveys } from '../context/SurveyContext';
-import { FaUsers, FaClock, FaTrash, FaEdit, FaShare } from 'react-icons/fa';
+import { FaUsers, FaClock, FaTrash, FaEdit, FaShare, FaRobot, FaLightbulb } from 'react-icons/fa';
 import './Survey.css';
 
 const Survey = () => {
@@ -13,6 +13,10 @@ const Survey = () => {
   });
   const [editingSurvey, setEditingSurvey] = useState(null);
   const [surveyToDelete, setSurveyToDelete] = useState(null);
+  const [aiQuery, setAiQuery] = useState('');
+  const [aiSuggestions, setAiSuggestions] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [selectedQuestionIndex, setSelectedQuestionIndex] = useState(null);
 
   const handleCreateSurvey = () => {
     if (!newSurvey.title.trim()) {
@@ -97,6 +101,81 @@ const Survey = () => {
     }
   };
 
+  const handleAiQuery = async (e) => {
+    e.preventDefault();
+    if (!aiQuery.trim() || !editingSurvey) return;
+
+    setLoading(true);
+    try {
+      // TODO: Replace with actual API call
+      const mockResponse = {
+        suggestions: [
+          {
+            type: 'question_improvement',
+            text: 'Consider adding a rating scale to measure satisfaction levels',
+            questionIndex: selectedQuestionIndex
+          },
+          {
+            type: 'question_addition',
+            text: 'Add a follow-up question about specific pain points',
+            questionIndex: selectedQuestionIndex
+          },
+          {
+            type: 'question_clarification',
+            text: 'Make the question more specific to get better responses',
+            questionIndex: selectedQuestionIndex
+          }
+        ],
+        recommendations: [
+          'Add demographic questions to better segment responses',
+          'Include a mix of quantitative and qualitative questions',
+          'Consider adding a progress indicator for long surveys'
+        ]
+      };
+
+      setAiSuggestions(mockResponse);
+    } catch (error) {
+      console.error('Error fetching AI suggestions:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const applySuggestion = (suggestion) => {
+    if (!editingSurvey) return;
+
+    const updatedQuestions = [...editingSurvey.questions];
+    
+    switch (suggestion.type) {
+      case 'question_improvement':
+        // Update existing question
+        updatedQuestions[suggestion.questionIndex] = {
+          ...updatedQuestions[suggestion.questionIndex],
+          text: suggestion.text
+        };
+        break;
+      case 'question_addition':
+        // Add new question after the selected one
+        updatedQuestions.splice(suggestion.questionIndex + 1, 0, {
+          text: suggestion.text,
+          type: 'text',
+          options: [],
+          required: false
+        });
+        break;
+      case 'question_clarification':
+        // Update question text with clarification
+        updatedQuestions[suggestion.questionIndex] = {
+          ...updatedQuestions[suggestion.questionIndex],
+          text: suggestion.text
+        };
+        break;
+    }
+
+    setEditingSurvey({ ...editingSurvey, questions: updatedQuestions });
+    setAiSuggestions(null);
+  };
+
   const renderQuestionForm = (question, index, survey = newSurvey) => (
     <div key={index} className="question-item">
       <div className="question-header">
@@ -164,6 +243,63 @@ const Survey = () => {
           >
             Add Option
           </button>
+        </div>
+      )}
+
+      {editingSurvey && (
+        <div className="ai-assistance-section">
+          <button 
+            className="ai-help-btn"
+            onClick={() => setSelectedQuestionIndex(index)}
+          >
+            <FaRobot /> Get AI Help
+          </button>
+          
+          {selectedQuestionIndex === index && (
+            <div className="ai-suggestions">
+              <form onSubmit={handleAiQuery} className="ai-query-form">
+                <div className="query-input-wrapper">
+                  <FaRobot className="ai-icon" />
+                  <input
+                    type="text"
+                    value={aiQuery}
+                    onChange={(e) => setAiQuery(e.target.value)}
+                    placeholder="Ask AI to help improve this question..."
+                    className="query-input"
+                  />
+                </div>
+                <button 
+                  type="submit" 
+                  className="query-submit"
+                  disabled={loading || !aiQuery.trim()}
+                >
+                  {loading ? 'Analyzing...' : 'Get Suggestions'}
+                </button>
+              </form>
+
+              {aiSuggestions && (
+                <div className="suggestions-display">
+                  <h4>AI Suggestions</h4>
+                  <div className="suggestions-list">
+                    {aiSuggestions.suggestions.map((suggestion, idx) => (
+                      <div key={idx} className="suggestion-item">
+                        <FaLightbulb className="suggestion-icon" />
+                        <div className="suggestion-content">
+                          <p>{suggestion.text}</p>
+                          <button 
+                            className="apply-suggestion-btn"
+                            onClick={() => applySuggestion(suggestion)}
+                          >
+                            Apply Suggestion
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>
