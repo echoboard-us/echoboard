@@ -1,162 +1,110 @@
-import React from 'react';
-import { useSurveys } from '../context/SurveyContext';
-import { useTheme } from '../context/ThemeContext';
-import { FaUsers, FaChartBar, FaArrowUp, FaArrowDown, FaClock } from 'react-icons/fa';
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend,
-  ArcElement,
-  PointElement,
-  LineElement,
-} from 'chart.js';
-import { Bar, Pie, Line } from 'react-chartjs-2';
+import React, { useState } from 'react';
+import { 
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  BarChart, Bar, PieChart, Pie, Cell, Legend
+} from 'recharts';
+import { 
+  FaUsers, FaChartBar, FaComments, FaStar,
+  FaCalendarAlt, FaFilter, FaDownload, FaShare
+} from 'react-icons/fa';
 import './Analytics.css';
 
-// Register ChartJS components
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend,
-  ArcElement,
-  PointElement,
-  LineElement
-);
+// Mock data for charts
+const responseData = [
+  { date: '2024-01', responses: 120 },
+  { date: '2024-02', responses: 150 },
+  { date: '2024-03', responses: 180 },
+  { date: '2024-04', responses: 210 },
+  { date: '2024-05', responses: 250 },
+];
+
+const satisfactionData = [
+  { name: 'Very Satisfied', value: 45 },
+  { name: 'Satisfied', value: 30 },
+  { name: 'Neutral', value: 15 },
+  { name: 'Dissatisfied', value: 7 },
+  { name: 'Very Dissatisfied', value: 3 },
+];
+
+const categoryData = [
+  { category: 'Product', responses: 85 },
+  { category: 'Service', responses: 65 },
+  { category: 'Support', responses: 45 },
+  { category: 'Features', responses: 35 },
+  { category: 'UX/UI', responses: 30 },
+];
+
+const COLORS = ['#4CAF50', '#8BC34A', '#FFC107', '#FF9800', '#F44336'];
 
 const Analytics = () => {
-  const { surveys } = useSurveys();
-  const { isDarkMode } = useTheme();
+  const [timeRange, setTimeRange] = useState('month');
+  const [selectedMetrics, setSelectedMetrics] = useState(['responses', 'satisfaction']);
 
-  // Calculate analytics data
-  const totalSurveys = surveys.length;
-  const activeSurveys = surveys.filter(s => s.status === 'Active').length;
-  const completedSurveys = surveys.filter(s => s.status === 'Completed').length;
-  const totalRespondents = surveys.reduce((sum, survey) => sum + survey.respondents, 0);
-  const averageRespondents = Math.round(totalRespondents / totalSurveys);
-
-  // Common chart options
-  const chartOptions = {
-    responsive: true,
-    plugins: {
-      legend: {
-        labels: {
-          color: isDarkMode ? '#b3b3b3' : '#666666',
-        },
-      },
-    },
-    scales: {
-      y: {
-        beginAtZero: true,
-        ticks: {
-          color: isDarkMode ? '#b3b3b3' : '#666666',
-        },
-        grid: {
-          color: isDarkMode ? '#404040' : '#e0e0e0',
-        },
-      },
-      x: {
-        ticks: {
-          color: isDarkMode ? '#b3b3b3' : '#666666',
-        },
-        grid: {
-          color: isDarkMode ? '#404040' : '#e0e0e0',
-        },
-      },
-    },
+  const metrics = {
+    totalResponses: 910,
+    averageRating: 4.2,
+    completionRate: '87%',
+    avgTimeToComplete: '4.5 min'
   };
 
-  // Response rate trends data
-  const responseRateData = {
-    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul'],
-    datasets: [
-      {
-        label: 'Response Rate',
-        data: [65, 72, 68, 75, 82, 78, 85],
-        borderColor: '#6a4ef9',
-        backgroundColor: isDarkMode ? 'rgba(106, 78, 249, 0.2)' : 'rgba(106, 78, 249, 0.1)',
-        tension: 0.4,
-        fill: true,
-      },
-    ],
-  };
-
-  // Survey status distribution
-  const statusData = {
-    labels: ['Active', 'Completed', 'Draft'],
-    datasets: [
-      {
-        data: [activeSurveys, completedSurveys, totalSurveys - activeSurveys - completedSurveys],
-        backgroundColor: ['#1976d2', '#2e7d32', '#757575'],
-        borderWidth: 0,
-      },
-    ],
-  };
-
-  // Respondent trends
-  const respondentData = {
-    labels: surveys.slice(0, 5).map(survey => survey.title),
-    datasets: [
-      {
-        label: 'Respondents',
-        data: surveys.slice(0, 5).map(survey => survey.respondents),
-        backgroundColor: '#6a4ef9',
-        borderRadius: 6,
-      },
-    ],
+  const CustomTooltip = ({ active, payload, label }) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="custom-tooltip">
+          <p className="label">{`${label}`}</p>
+          <p className="value">{`${payload[0].value} responses`}</p>
+        </div>
+      );
+    }
+    return null;
   };
 
   return (
     <div className="analytics-container">
       <div className="analytics-header">
         <h1>Analytics</h1>
-        <p className="subtitle">Comprehensive insights and metrics for your surveys</p>
+        <p className="subtitle">Comprehensive survey performance metrics and insights</p>
       </div>
 
-      {/* Key Metrics */}
-      <div className="metrics-grid">
+      <div className="analytics-controls">
+        <div className="control-group">
+          <button className="control-btn">
+            <FaCalendarAlt /> Last 30 Days
+          </button>
+          <button className="control-btn">
+            <FaFilter /> Filter
+          </button>
+        </div>
+        <div className="control-group">
+          <button className="control-btn">
+            <FaDownload /> Export
+          </button>
+          <button className="control-btn">
+            <FaShare /> Share
+          </button>
+        </div>
+      </div>
+
+      <div className="metrics-overview">
         <div className="metric-card">
           <div className="metric-icon">
             <FaUsers />
           </div>
           <div className="metric-content">
-            <h3>Total Respondents</h3>
-            <p className="metric-value">{totalRespondents}</p>
-            <p className="metric-change positive">
-              <FaArrowUp /> 12% from last month
-            </p>
+            <h3>Total Responses</h3>
+            <p className="metric-value">{metrics.totalResponses}</p>
+            <p className="metric-trend positive">+12.5% vs last month</p>
           </div>
         </div>
 
         <div className="metric-card">
           <div className="metric-icon">
-            <FaChartBar />
+            <FaStar />
           </div>
           <div className="metric-content">
-            <h3>Active Surveys</h3>
-            <p className="metric-value">{activeSurveys}</p>
-            <p className="metric-change positive">
-              <FaArrowUp /> 5% from last month
-            </p>
-          </div>
-        </div>
-
-        <div className="metric-card">
-          <div className="metric-icon">
-            <FaClock />
-          </div>
-          <div className="metric-content">
-            <h3>Avg. Response Time</h3>
-            <p className="metric-value">2.5 days</p>
-            <p className="metric-change negative">
-              <FaArrowDown /> 8% from last month
-            </p>
+            <h3>Average Rating</h3>
+            <p className="metric-value">{metrics.averageRating}</p>
+            <p className="metric-trend positive">+0.3 vs last month</p>
           </div>
         </div>
 
@@ -166,110 +114,109 @@ const Analytics = () => {
           </div>
           <div className="metric-content">
             <h3>Completion Rate</h3>
-            <p className="metric-value">78%</p>
-            <p className="metric-change positive">
-              <FaArrowUp /> 3% from last month
-            </p>
+            <p className="metric-value">{metrics.completionRate}</p>
+            <p className="metric-trend positive">+5% vs last month</p>
+          </div>
+        </div>
+
+        <div className="metric-card">
+          <div className="metric-icon">
+            <FaComments />
+          </div>
+          <div className="metric-content">
+            <h3>Avg. Time to Complete</h3>
+            <p className="metric-value">{metrics.avgTimeToComplete}</p>
+            <p className="metric-trend negative">+0.5 min vs last month</p>
           </div>
         </div>
       </div>
 
-      {/* Charts Section */}
       <div className="charts-grid">
-        <div className="chart-card">
-          <h3>Response Rate Trends</h3>
-          <div className="chart-container">
-            <Line
-              data={responseRateData}
-              options={{
-                ...chartOptions,
-                plugins: {
-                  ...chartOptions.plugins,
-                  legend: {
-                    display: false,
-                  },
-                },
-                scales: {
-                  y: {
-                    ...chartOptions.scales.y,
-                    max: 100,
-                    ticks: {
-                      ...chartOptions.scales.y.ticks,
-                      callback: (value) => `${value}%`,
-                    },
-                  },
-                },
-              }}
-            />
-          </div>
+        <div className="chart-container">
+          <h3>Response Trends</h3>
+          <ResponsiveContainer width="100%" height={300}>
+            <AreaChart data={responseData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+              <defs>
+                <linearGradient id="responseGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="var(--primary-color)" stopOpacity={0.8}/>
+                  <stop offset="95%" stopColor="var(--primary-color)" stopOpacity={0}/>
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="date" />
+              <YAxis />
+              <Tooltip content={<CustomTooltip />} />
+              <Area 
+                type="monotone" 
+                dataKey="responses" 
+                stroke="var(--primary-color)" 
+                fillOpacity={1} 
+                fill="url(#responseGradient)" 
+              />
+            </AreaChart>
+          </ResponsiveContainer>
         </div>
 
-        <div className="chart-card">
-          <h3>Survey Status Distribution</h3>
-          <div className="chart-container">
-            <Pie
-              data={statusData}
-              options={{
-                ...chartOptions,
-                plugins: {
-                  ...chartOptions.plugins,
-                  legend: {
-                    position: 'bottom',
-                  },
-                },
-              }}
-            />
-          </div>
+        <div className="chart-container">
+          <h3>Satisfaction Distribution</h3>
+          <ResponsiveContainer width="100%" height={300}>
+            <PieChart>
+              <Pie
+                data={satisfactionData}
+                cx="50%"
+                cy="50%"
+                innerRadius={60}
+                outerRadius={100}
+                fill="#8884d8"
+                paddingAngle={5}
+                dataKey="value"
+              >
+                {satisfactionData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                ))}
+              </Pie>
+              <Tooltip />
+              <Legend />
+            </PieChart>
+          </ResponsiveContainer>
         </div>
 
-        <div className="chart-card full-width">
-          <h3>Recent Survey Respondents</h3>
-          <div className="chart-container">
-            <Bar
-              data={respondentData}
-              options={{
-                ...chartOptions,
-                plugins: {
-                  ...chartOptions.plugins,
-                  legend: {
-                    display: false,
-                  },
-                },
-                scales: {
-                  y: {
-                    ...chartOptions.scales.y,
-                    ticks: {
-                      ...chartOptions.scales.y.ticks,
-                      stepSize: 1,
-                    },
-                  },
-                },
-              }}
-            />
-          </div>
+        <div className="chart-container">
+          <h3>Response Categories</h3>
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={categoryData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="category" />
+              <YAxis />
+              <Tooltip />
+              <Bar dataKey="responses" fill="var(--primary-color)" />
+            </BarChart>
+          </ResponsiveContainer>
         </div>
-      </div>
 
-      {/* Insights Section */}
-      <div className="insights-section">
-        <h2>Key Insights</h2>
-        <div className="insights-grid">
-          <div className="insight-card">
-            <h4>Survey Engagement</h4>
-            <p>Employee satisfaction surveys show the highest engagement rates, with an average response rate of 85%.</p>
-          </div>
-          <div className="insight-card">
-            <h4>Response Patterns</h4>
-            <p>Most responses are submitted within the first 48 hours of survey distribution.</p>
-          </div>
-          <div className="insight-card">
-            <h4>Question Analysis</h4>
-            <p>Multiple-choice questions have a 92% completion rate compared to 78% for open-ended questions.</p>
-          </div>
-          <div className="insight-card">
-            <h4>Trend Analysis</h4>
-            <p>Overall survey participation has increased by 15% over the last quarter.</p>
-          </div>
+        <div className="chart-container">
+          <h3>Response Time Distribution</h3>
+          <ResponsiveContainer width="100%" height={300}>
+            <AreaChart data={responseData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+              <defs>
+                <linearGradient id="timeGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#82ca9d" stopOpacity={0.8}/>
+                  <stop offset="95%" stopColor="#82ca9d" stopOpacity={0}/>
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="date" />
+              <YAxis />
+              <Tooltip />
+              <Area 
+                type="monotone" 
+                dataKey="responses" 
+                stroke="#82ca9d" 
+                fillOpacity={1} 
+                fill="url(#timeGradient)" 
+              />
+            </AreaChart>
+          </ResponsiveContainer>
         </div>
       </div>
     </div>
