@@ -331,45 +331,55 @@ const Survey = () => {
 
   const renderQuestionForm = (question, index, survey = newSurvey) => (
     <div key={index} className="question-item">
-      <div className="question-header">
+    <div className="question-header">
+      {/* Question text input wrapped in a container to pick up .question-text styles */}
+      <div className="question-text">
         <input
           type="text"
           placeholder="Question text"
           value={question.text}
           onChange={(e) => updateQuestion(index, 'text', e.target.value, survey)}
         />
-        <select
-          value={question.type}
-          onChange={(e) => updateQuestion(index, 'type', e.target.value, survey)}
-        >
-          <option value="text">Text</option>
-          <option value="multiple-choice">Multiple Choice</option>
-          <option value="rating">Rating</option>
-          <option value="checkbox">Checkbox</option>
-          <option value="dropdown">Dropdown</option>
-        </select>
-        <label className="required-toggle">
-          <input
-            type="checkbox"
-            checked={question.required}
-            onChange={(e) => updateQuestion(index, 'required', e.target.checked, survey)}
-          />
-          Required
-        </label>
-        <button 
-          className="remove-question-btn"
-          onClick={() => {
-            const updatedQuestions = survey.questions.filter((_, i) => i !== index);
-            if (editingSurvey) {
-              setEditingSurvey({ ...editingSurvey, questions: updatedQuestions });
-            } else {
-              setNewSurvey({ ...survey, questions: updatedQuestions });
-            }
-          }}
-        >
-          <FaTrash />
-        </button>
       </div>
+      
+      {/* Dropdown with modern styling via .question-type-select */}
+      <select
+        className="question-type-select"
+        value={question.type}
+        onChange={(e) => updateQuestion(index, 'type', e.target.value, survey)}
+      >
+        <option value="text">Text</option>
+        <option value="multiple-choice">Multiple Choice</option>
+        <option value="rating">Rating</option>
+        <option value="checkbox">Checkbox</option>
+        <option value="dropdown">Dropdown</option>
+      </select>
+
+      {/* Required checkbox */}
+      <label className="required-toggle">
+        <input
+          type="checkbox"
+          checked={question.required}
+          onChange={(e) => updateQuestion(index, 'required', e.target.checked, survey)}
+        />
+        Required
+      </label>
+
+      {/* Trash icon button */}
+      <button 
+        className="remove-question-btn"
+        onClick={() => {
+          const updatedQuestions = survey.questions.filter((_, i) => i !== index);
+          if (editingSurvey) {
+            setEditingSurvey({ ...editingSurvey, questions: updatedQuestions });
+          } else {
+            setNewSurvey({ ...survey, questions: updatedQuestions });
+          }
+        }}
+      >
+        <FaTrash />
+      </button>
+    </div>
 
       {(question.type === 'multiple-choice' || question.type === 'checkbox' || question.type === 'dropdown') && (
         <div className="options-section">
