@@ -22,14 +22,12 @@ const Survey = () => {
     questions: []
   });
   const [editingSurvey, setEditingSurvey] = useState(null);
-  const [surveyToDelete, setSurveyToDelete] = useState(null);
   const [aiQuery, setAiQuery] = useState('');
   const [aiSuggestions, setAiSuggestions] = useState(null);
   const [loading, setLoading] = useState(false);
   const [selectedQuestionIndex, setSelectedQuestionIndex] = useState(null);
   const [selectedSurveyInsights, setSelectedSurveyInsights] = useState(null);
   const [showRawResponses, setShowRawResponses] = useState(false);
-  const [insightsLoading, setInsightsLoading] = useState(false);
   const [viewingSurvey, setViewingSurvey] = useState(null);
   const [showShareModal, setShowShareModal] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
@@ -337,6 +335,9 @@ const Survey = () => {
           text: suggestion.text
         };
         break;
+      default:
+        // No action needed for unknown suggestion types
+        break;
     }
 
     setEditingSurvey({ ...editingSurvey, questions: updatedQuestions });
@@ -345,7 +346,6 @@ const Survey = () => {
 
   const handleShowInsights = async (survey) => {
     setSelectedSurveyInsights(survey);
-    setInsightsLoading(true);
     try {
       // TODO: Replace with actual API call
       // Simulating API delay
@@ -384,8 +384,6 @@ const Survey = () => {
       setSelectedSurveyInsights({ ...survey, insights: mockInsights });
     } catch (error) {
       console.error('Error fetching insights:', error);
-    } finally {
-      setInsightsLoading(false);
     }
   };
 
@@ -499,47 +497,6 @@ const Survey = () => {
     // Get a safe status value
     const surveyStatus = survey.status || 'draft';
 
-    const handleShare = async () => {
-      try {
-        // Create a share link
-        const { data: shareLink, error } = await supabase
-          .from('survey_share_links')
-          .insert([{
-            survey_id: survey.id,
-            token: crypto.randomUUID(),
-            expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days expiry
-          }])
-          .select()
-          .single();
-
-        if (error) {
-          console.error('Share link creation error:', error);
-          alert(`Failed to create share link: ${error.message}`);
-          return;
-        }
-
-        // Update UI with share link
-        setShowShareModal(true);
-        const surveyLink = `${window.location.origin}/survey/${shareLink.token}`;
-        // Store the link in state or use it in your UI
-      } catch (error) {
-        console.error('Error creating share link:', error);
-        alert(`Failed to create share link: ${error.message}`);
-      }
-    };
-
-    const handleCopyLink = async () => {
-      // Generate a unique survey link (in production, this would be a proper URL)
-      const surveyLink = `${window.location.origin}/survey/${survey.id}`;
-      try {
-        await navigator.clipboard.writeText(surveyLink);
-        setCopySuccess(true);
-        setTimeout(() => setCopySuccess(false), 2000);
-      } catch (err) {
-        console.error('Failed to copy link:', err);
-      }
-    };
-
     return (
       <div className="modal-overlay">
         <div className="view-survey-modal">
@@ -566,21 +523,24 @@ const Survey = () => {
 
             <div className="survey-questions">
               <h3>Questions</h3>
-              {survey.questions.map((question, index) => (
+              {survey.questions && survey.questions.map((question, index) => (
                 <div key={index} className="survey-question">
                   <div className="question-number">Q{index + 1}</div>
                   <div className="question-content">
-                    <p className="question-text">{question.text}</p>
+                    <p className="question-text">{question.question}</p>
                     {question.required && <span className="required-badge">Required</span>}
-                    {(question.type === 'multiple-choice' || question.type === 'checkbox' || question.type === 'dropdown') && (
+                    
+                    {/* Display options based on question type */}
+                    {(question.type === 'multiple_choice' || question.type === 'checkbox' || question.type === 'dropdown') && question.choices && (
                       <div className="question-options">
-                        {question.options.map((option, optionIndex) => (
+                        {question.choices.map((option, optionIndex) => (
                           <div key={optionIndex} className="option">
                             {question.type === 'checkbox' ? '☐' : '○'} {option}
                           </div>
                         ))}
                       </div>
                     )}
+                    
                     {question.type === 'rating' && (
                       <div className="rating-preview">
                         {[1, 2, 3, 4, 5].map(num => (
@@ -594,7 +554,7 @@ const Survey = () => {
             </div>
 
             <div className="survey-actions">
-              <button className="share-btn" onClick={handleShare}>
+              <button className="share-btn" onClick={() => setShowShareModal(true)}>
                 <FaShare /> Share Survey
               </button>
             </div>
@@ -610,7 +570,11 @@ const Survey = () => {
                       value={`${window.location.origin}/survey/${survey.id}`}
                       readOnly
                     />
-                    <button onClick={handleCopyLink}>
+                    <button onClick={() => {
+                      navigator.clipboard.writeText(`${window.location.origin}/survey/${survey.id}`);
+                      setCopySuccess(true);
+                      setTimeout(() => setCopySuccess(false), 2000);
+                    }}>
                       {copySuccess ? 'Copied!' : <FaCopy />}
                     </button>
                   </div>

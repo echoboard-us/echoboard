@@ -4,6 +4,7 @@ import Sidebar from "./components/Sidebar";
 import Dashboard from "./components/Dashboard";
 import Insights from "./components/Insights";
 import Survey from "./components/Survey";
+import SurveyResponse from "./components/SurveyResponse";
 import Analytics from "./components/Analytics";
 import { SurveyProvider } from "./context/SurveyContext";
 import { ThemeProvider } from "./context/ThemeContext";
@@ -23,29 +24,36 @@ const ThemeToggle = () => {
 
 function App() {
   return (
-    <ThemeProvider>
-      <SurveyProvider>
-        <Router>
-          <div className="app-container">
-            {/* Fixed Sidebar */}
-            <Sidebar />
-            
-            {/* Theme Toggle */}
-            <ThemeToggle />
+    <div className="App">
+      <ThemeProvider>
+        <SurveyProvider>
+          <Router>
+            <Routes>
+              <Route path="/survey/:surveyId" element={<SurveyResponse />} />
+              <Route path="*" element={
+                <div className="app-container">
+                  {/* Fixed Sidebar */}
+                  <Sidebar />
+                  
+                  {/* Theme Toggle */}
+                  <ThemeToggle />
 
-            {/* Scrollable Main Content */}
-            <div className="main-content">
-              <Routes>
-                <Route path="/" element={<Dashboard />} />
-                <Route path="/insights" element={<Insights />} />
-                <Route path="/surveys" element={<Survey />} />
-                <Route path="/analytics" element={<Analytics />} />
-              </Routes>
-            </div>
-          </div>
-        </Router>
-      </SurveyProvider>
-    </ThemeProvider>
+                  {/* Scrollable Main Content */}
+                  <div className="main-content">
+                    <Routes>
+                      <Route path="/" element={<Dashboard />} />
+                      <Route path="/insights" element={<Insights />} />
+                      <Route path="/surveys" element={<Survey />} />
+                      <Route path="/analytics" element={<Analytics />} />
+                    </Routes>
+                  </div>
+                </div>
+              } />
+            </Routes>
+          </Router>
+        </SurveyProvider>
+      </ThemeProvider>
+    </div>
   );
 }
 
