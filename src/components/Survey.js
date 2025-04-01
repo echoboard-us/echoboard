@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useSurveys } from '../context/SurveyContext';
-import { FaUsers, FaClock, FaTrash, FaEdit, FaShare, FaRobot, FaLightbulb, FaChartBar, FaChevronDown, FaChevronUp } from 'react-icons/fa';
+import { FaUsers, FaClock, FaTrash, FaEdit, FaShare, FaRobot, FaLightbulb, FaChartBar, FaChevronDown, FaChevronUp, FaLink, FaCopy } from 'react-icons/fa';
 import './Survey.css';
 
 const Survey = () => {
@@ -20,6 +20,9 @@ const Survey = () => {
   const [selectedSurveyInsights, setSelectedSurveyInsights] = useState(null);
   const [showRawResponses, setShowRawResponses] = useState(false);
   const [insightsLoading, setInsightsLoading] = useState(false);
+  const [viewingSurvey, setViewingSurvey] = useState(null);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [copySuccess, setCopySuccess] = useState(false);
 
   const handleCreateSurvey = () => {
     if (!newSurvey.title.trim()) {
@@ -329,6 +332,111 @@ const Survey = () => {
     );
   };
 
+  const ViewSurveyModal = ({ survey, onClose }) => {
+    if (!survey) return null;
+
+    const handleShare = () => {
+      setShowShareModal(true);
+    };
+
+    const handleCopyLink = async () => {
+      // Generate a unique survey link (in production, this would be a proper URL)
+      const surveyLink = `${window.location.origin}/survey/${survey.id}`;
+      try {
+        await navigator.clipboard.writeText(surveyLink);
+        setCopySuccess(true);
+        setTimeout(() => setCopySuccess(false), 2000);
+      } catch (err) {
+        console.error('Failed to copy link:', err);
+      }
+    };
+
+    return (
+      <div className="modal-overlay">
+        <div className="view-survey-modal">
+          <div className="modal-header">
+            <h2>{survey.title}</h2>
+            <button className="close-modal-btn" onClick={onClose}>×</button>
+          </div>
+          
+          <div className="modal-content">
+            <div className="survey-info">
+              <p className="survey-description">{survey.description}</p>
+              <div className="survey-meta">
+                <span className={`status ${survey.status.toLowerCase()}`}>
+                  {survey.status}
+                </span>
+                <span className="respondents">
+                  <FaUsers /> {survey.respondents} respondents
+                </span>
+                <span className="date">
+                  <FaClock /> {survey.date}
+                </span>
+              </div>
+            </div>
+
+            <div className="survey-questions">
+              <h3>Questions</h3>
+              {survey.questions.map((question, index) => (
+                <div key={index} className="survey-question">
+                  <div className="question-number">Q{index + 1}</div>
+                  <div className="question-content">
+                    <p className="question-text">{question.text}</p>
+                    {question.required && <span className="required-badge">Required</span>}
+                    {(question.type === 'multiple-choice' || question.type === 'checkbox' || question.type === 'dropdown') && (
+                      <div className="question-options">
+                        {question.options.map((option, optionIndex) => (
+                          <div key={optionIndex} className="option">
+                            {question.type === 'checkbox' ? '☐' : '○'} {option}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {question.type === 'rating' && (
+                      <div className="rating-preview">
+                        {[1, 2, 3, 4, 5].map(num => (
+                          <span key={num} className="rating-star">★</span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="survey-actions">
+              <button className="share-btn" onClick={handleShare}>
+                <FaShare /> Share Survey
+              </button>
+            </div>
+
+            {showShareModal && (
+              <div className="share-modal">
+                <div className="share-content">
+                  <h3>Share Survey</h3>
+                  <div className="share-link">
+                    <FaLink />
+                    <input 
+                      type="text" 
+                      value={`${window.location.origin}/survey/${survey.id}`}
+                      readOnly
+                    />
+                    <button onClick={handleCopyLink}>
+                      {copySuccess ? 'Copied!' : <FaCopy />}
+                    </button>
+                  </div>
+                  <button className="close-share-btn" onClick={() => setShowShareModal(false)}>
+                    Close
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const renderQuestionForm = (question, index, survey = newSurvey) => (
     <div key={index} className="question-item">
     <div className="question-header">
@@ -569,6 +677,12 @@ const Survey = () => {
                   </button>
                   <button 
                     className="view-survey-btn"
+                    onClick={() => setViewingSurvey(survey)}
+                  >
+                    <FaShare /> View & Share
+                  </button>
+                  <button 
+                    className="insights-btn"
                     onClick={() => handleShowInsights(survey)}
                   >
                     <FaChartBar /> Insights
@@ -590,6 +704,17 @@ const Survey = () => {
         <InsightsModal 
           survey={selectedSurveyInsights} 
           onClose={() => setSelectedSurveyInsights(null)} 
+        />
+      )}
+
+      {viewingSurvey && (
+        <ViewSurveyModal
+          survey={viewingSurvey}
+          onClose={() => {
+            setViewingSurvey(null);
+            setShowShareModal(false);
+            setCopySuccess(false);
+          }}
         />
       )}
     </div>
