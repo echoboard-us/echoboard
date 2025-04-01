@@ -1,0 +1,1 @@
+CREATE TABLE surveys (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, title TEXT NOT NULL, description TEXT, questions JSONB NOT NULL DEFAULT '[]'::jsonb, status TEXT NOT NULL DEFAULT 'Draft', respondents INTEGER DEFAULT 0, created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW()), updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW()));

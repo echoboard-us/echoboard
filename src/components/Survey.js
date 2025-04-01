@@ -1,10 +1,20 @@
-import React, { useState } from 'react';
-import { useSurveys } from '../context/SurveyContext';
+import React, { useState, useEffect } from 'react';
+import { supabase } from '../lib/supabase.js';
 import { FaUsers, FaClock, FaTrash, FaEdit, FaShare, FaRobot, FaLightbulb, FaChartBar, FaChevronDown, FaChevronUp, FaLink, FaCopy } from 'react-icons/fa';
 import './Survey.css';
 
+// Question type enum values
+const QUESTION_TYPES = {
+  TEXT: 'short_text',
+  LONG_TEXT: 'long_text',
+  MULTIPLE_CHOICE: 'multiple_choice',
+  CHECKBOX: 'checkbox',
+  DROPDOWN: 'dropdown',
+  RATING: 'rating'
+};
+
 const Survey = () => {
-  const { surveys, addSurvey, updateSurvey, deleteSurvey } = useSurveys();
+  const [surveys, setSurveys] = useState([]);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newSurvey, setNewSurvey] = useState({
     title: '',
@@ -24,36 +34,183 @@ const Survey = () => {
   const [showShareModal, setShowShareModal] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
 
-  const handleCreateSurvey = () => {
+  // Fetch surveys from Supabase
+  useEffect(() => {
+    fetchSurveys();
+  }, []);
+
+  const fetchSurveys = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('surveys')
+        .select(`
+          *,
+          questions (
+            *
+          ),
+          survey_insights (
+            *
+          )
+        `)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setSurveys(data || []);
+    } catch (error) {
+      console.error('Error fetching surveys:', error);
+    }
+  };
+
+  const handleCreateSurvey = async () => {
     if (!newSurvey.title.trim()) {
       alert('Please enter a survey title');
       return;
     }
-    addSurvey(newSurvey);
-    setNewSurvey({ title: '', description: '', questions: [] });
-    setShowCreateForm(false);
+
+    try {
+      // Insert survey without creator_id
+      const { data: surveyData, error: surveyError } = await supabase
+        .from('surveys')
+        .insert([{
+          title: newSurvey.title,
+          description: newSurvey.description,
+          is_public: true,
+          status: 'draft' // Add default status
+        }])
+        .select()
+        .single();
+
+      if (surveyError) {
+        console.error('Survey creation error:', surveyError);
+        alert(`Failed to create survey: ${surveyError.message}`);
+        return;
+      }
+
+      // Insert questions
+      if (newSurvey.questions.length > 0) {
+        const questionsToInsert = newSurvey.questions.map((q, index) => {
+          // Ensure options is always an array
+          const choices = Array.isArray(q.options) ? q.options.filter(opt => opt !== '') : [];
+          
+          return {
+            survey_id: surveyData.id,
+            question: q.text,
+            type: q.type,
+            choices: choices.length > 0 ? choices : null,
+            order: index,
+          };
+        });
+
+        const { error: questionsError } = await supabase
+          .from('questions')
+          .insert(questionsToInsert);
+
+        if (questionsError) {
+          console.error('Questions creation error:', questionsError);
+          alert(`Failed to create questions: ${questionsError.message}`);
+          return;
+        }
+      }
+
+      setNewSurvey({ title: '', description: '', questions: [] });
+      setShowCreateForm(false);
+      fetchSurveys(); // Refresh the surveys list
+    } catch (error) {
+      console.error('Error creating survey:', error);
+      alert(`Failed to create survey: ${error.message}`);
+    }
   };
 
-  const handleUpdateSurvey = () => {
+  const handleUpdateSurvey = async () => {
     if (!editingSurvey.title.trim()) {
       alert('Please enter a survey title');
       return;
     }
-    updateSurvey(editingSurvey.id, editingSurvey);
-    setEditingSurvey(null);
+
+    try {
+      // Update survey without creator_id
+      const { error: surveyError } = await supabase
+        .from('surveys')
+        .update({
+          title: editingSurvey.title,
+          description: editingSurvey.description,
+        })
+        .eq('id', editingSurvey.id);
+
+      if (surveyError) {
+        console.error('Survey update error:', surveyError);
+        alert(`Failed to update survey: ${surveyError.message}`);
+        return;
+      }
+
+      // Delete existing questions
+      const { error: deleteError } = await supabase
+        .from('questions')
+        .delete()
+        .eq('survey_id', editingSurvey.id);
+
+      if (deleteError) {
+        console.error('Questions deletion error:', deleteError);
+        alert(`Failed to update questions: ${deleteError.message}`);
+        return;
+      }
+
+      // Insert updated questions
+      if (editingSurvey.questions.length > 0) {
+        const questionsToInsert = editingSurvey.questions.map((q, index) => {
+          // Ensure options is always an array
+          const choices = Array.isArray(q.options) ? q.options.filter(opt => opt !== '') : [];
+          
+          return {
+            survey_id: editingSurvey.id,
+            question: q.text,
+            type: q.type,
+            choices: choices.length > 0 ? choices : null,
+            order: index,
+          };
+        });
+
+        const { error: questionsError } = await supabase
+          .from('questions')
+          .insert(questionsToInsert);
+
+        if (questionsError) {
+          console.error('Questions creation error:', questionsError);
+          alert(`Failed to update questions: ${questionsError.message}`);
+          return;
+        }
+      }
+
+      setEditingSurvey(null);
+      fetchSurveys(); // Refresh the surveys list
+    } catch (error) {
+      console.error('Error updating survey:', error);
+      alert(`Failed to update survey: ${error.message}`);
+    }
   };
 
-  const handleDeleteSurvey = (surveyId) => {
+  const handleDeleteSurvey = async (surveyId) => {
     if (window.confirm('Are you sure you want to delete this survey? This action cannot be undone.')) {
-      deleteSurvey(surveyId);
-      setSurveyToDelete(null);
+      try {
+        // Delete survey (cascade will handle related records)
+        const { error } = await supabase
+          .from('surveys')
+          .delete()
+          .eq('id', surveyId);
+
+        if (error) throw error;
+        fetchSurveys(); // Refresh the surveys list
+      } catch (error) {
+        console.error('Error deleting survey:', error);
+        alert('Failed to delete survey. Please try again.');
+      }
     }
   };
 
   const addQuestion = (survey = newSurvey) => {
     const updatedQuestions = [...survey.questions, { 
       text: '', 
-      type: 'text',
+      type: QUESTION_TYPES.TEXT,
       options: [],
       required: false
     }];
@@ -66,6 +223,10 @@ const Survey = () => {
 
   const updateQuestion = (index, field, value, survey = newSurvey) => {
     const updatedQuestions = [...survey.questions];
+    // If updating the type field, ensure we use a valid enum value
+    if (field === 'type') {
+      value = QUESTION_TYPES[value.toUpperCase()] || QUESTION_TYPES.TEXT;
+    }
     updatedQuestions[index] = { ...updatedQuestions[index], [field]: value };
     if (editingSurvey) {
       setEditingSurvey({ ...editingSurvey, questions: updatedQuestions });
@@ -335,8 +496,36 @@ const Survey = () => {
   const ViewSurveyModal = ({ survey, onClose }) => {
     if (!survey) return null;
 
-    const handleShare = () => {
-      setShowShareModal(true);
+    // Get a safe status value
+    const surveyStatus = survey.status || 'draft';
+
+    const handleShare = async () => {
+      try {
+        // Create a share link
+        const { data: shareLink, error } = await supabase
+          .from('survey_share_links')
+          .insert([{
+            survey_id: survey.id,
+            token: crypto.randomUUID(),
+            expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days expiry
+          }])
+          .select()
+          .single();
+
+        if (error) {
+          console.error('Share link creation error:', error);
+          alert(`Failed to create share link: ${error.message}`);
+          return;
+        }
+
+        // Update UI with share link
+        setShowShareModal(true);
+        const surveyLink = `${window.location.origin}/survey/${shareLink.token}`;
+        // Store the link in state or use it in your UI
+      } catch (error) {
+        console.error('Error creating share link:', error);
+        alert(`Failed to create share link: ${error.message}`);
+      }
     };
 
     const handleCopyLink = async () => {
@@ -363,14 +552,14 @@ const Survey = () => {
             <div className="survey-info">
               <p className="survey-description">{survey.description}</p>
               <div className="survey-meta">
-                <span className={`status ${survey.status.toLowerCase()}`}>
-                  {survey.status}
+                <span className={`status ${surveyStatus.toLowerCase()}`}>
+                  {surveyStatus}
                 </span>
                 <span className="respondents">
-                  <FaUsers /> {survey.respondents} respondents
+                  <FaUsers /> {survey.respondents || 0} respondents
                 </span>
                 <span className="date">
-                  <FaClock /> {survey.date}
+                  <FaClock /> {survey.created_at ? new Date(survey.created_at).toLocaleDateString() : 'N/A'}
                 </span>
               </div>
             </div>
@@ -456,11 +645,12 @@ const Survey = () => {
         value={question.type}
         onChange={(e) => updateQuestion(index, 'type', e.target.value, survey)}
       >
-        <option value="text">Text</option>
-        <option value="multiple-choice">Multiple Choice</option>
-        <option value="rating">Rating</option>
-        <option value="checkbox">Checkbox</option>
-        <option value="dropdown">Dropdown</option>
+        <option value={QUESTION_TYPES.TEXT}>Short Text</option>
+        <option value={QUESTION_TYPES.LONG_TEXT}>Long Text</option>
+        <option value={QUESTION_TYPES.MULTIPLE_CHOICE}>Multiple Choice</option>
+        <option value={QUESTION_TYPES.CHECKBOX}>Checkbox</option>
+        <option value={QUESTION_TYPES.DROPDOWN}>Dropdown</option>
+        <option value={QUESTION_TYPES.RATING}>Rating</option>
       </select>
 
       {/* Required checkbox */}
@@ -655,18 +845,18 @@ const Survey = () => {
             {surveys.map((survey) => (
               <div key={survey.id} className="survey-card">
                 <div className="survey-card-header">
-                  <span className={`status ${survey.status.toLowerCase()}`}>
-                    {survey.status}
+                  <span className={`status ${(survey.status || 'draft').toLowerCase()}`}>
+                    {survey.status || 'draft'}
                   </span>
                   <span className="date">
-                    <FaClock className="icon" /> {survey.date}
+                    <FaClock className="icon" /> {survey.created_at ? new Date(survey.created_at).toLocaleDateString() : 'N/A'}
                   </span>
                 </div>
                 <h3>{survey.title}</h3>
                 <p>{survey.description}</p>
                 <div className="survey-stats">
-                  <span><FaUsers className="icon" /> {survey.respondents} respondents</span>
-                  <span>{survey.questions.length} questions</span>
+                  <span><FaUsers className="icon" /> {survey.respondents || 0} respondents</span>
+                  <span>{survey.questions ? survey.questions.length : 0} questions</span>
                 </div>
                 <div className="survey-actions">
                   <button 
