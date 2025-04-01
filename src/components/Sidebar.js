@@ -1,6 +1,12 @@
 import React from "react";
 import { NavLink } from "react-router-dom";
-import { FaTachometerAlt, FaClipboardList, FaLightbulb, FaChartBar } from "react-icons/fa";
+import {
+  FaTachometerAlt,
+  FaClipboardList,
+  FaLightbulb,
+  FaChartBar,
+  FaUsers,
+} from "react-icons/fa";
 import "./Sidebar.css";
 
 const Sidebar = () => {
@@ -16,6 +22,10 @@ const Sidebar = () => {
         <NavLink to="/" className="nav-link">
           <FaTachometerAlt className="nav-icon" />
           <span>Dashboard</span>
+        </NavLink>
+        <NavLink to="/teams" className="nav-link">
+          <FaUsers className="nav-icon" />
+          <span>Teams</span>
         </NavLink>
         <NavLink to="/surveys" className="nav-link">
           <FaClipboardList className="nav-icon" />

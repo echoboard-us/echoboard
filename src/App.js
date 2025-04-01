@@ -5,6 +5,7 @@ import Dashboard from "./components/Dashboard";
 import Insights from "./components/Insights";
 import Survey from "./components/Survey";
 import Analytics from "./components/Analytics";
+import Teams from "./components/Teams";
 import { SurveyProvider } from "./context/SurveyContext";
 import { ThemeProvider } from "./context/ThemeContext";
 import { useTheme } from "./context/ThemeContext";
@@ -29,7 +30,7 @@ function App() {
           <div className="app-container">
             {/* Fixed Sidebar */}
             <Sidebar />
-            
+
             {/* Theme Toggle */}
             <ThemeToggle />
 
@@ -37,6 +38,7 @@ function App() {
             <div className="main-content">
               <Routes>
                 <Route path="/" element={<Dashboard />} />
+                <Route path="/teams" element={<Teams />} />
                 <Route path="/insights" element={<Insights />} />
                 <Route path="/surveys" element={<Survey />} />
                 <Route path="/analytics" element={<Analytics />} />
