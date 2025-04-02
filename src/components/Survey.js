@@ -419,6 +419,23 @@ const Survey = () => {
     }
   };
 
+  const prepareQuestionsForEdit = (questions) => {
+    return questions.map(q => ({
+      text: q.question,
+      type: q.type,
+      options: q.choices || [],
+      order: q.order
+    }));
+  };
+
+  const handleEdit = (survey) => {
+    setEditingSurvey({
+      ...survey,
+      questions: prepareQuestionsForEdit(survey.questions)
+    });
+    setShowCreateForm(true);
+  };
+
   const InsightsModal = ({ survey, onClose }) => {
     if (!survey || !survey.insights) return null;
     
@@ -554,7 +571,7 @@ const Survey = () => {
                   <FaUsers /> {survey.respondents || 0} respondents
                 </span>
                 <span className="date">
-                  <FaClock /> {new Date(survey.created_at).toLocaleDateString()}
+                  <FaClock className="icon" /> {survey.created_at ? new Date(survey.created_at).toLocaleDateString() : 'N/A'}
                 </span>
               </div>
             </div>
@@ -863,7 +880,7 @@ const Survey = () => {
                 <div className="survey-actions">
                   <button 
                     className="edit-survey-btn"
-                    onClick={() => setEditingSurvey(survey)}
+                    onClick={() => handleEdit(survey)}
                   >
                     <FaEdit /> Edit
                   </button>
