@@ -13,6 +13,13 @@ const QUESTION_TYPES = {
   RATING: 'rating'
 };
 
+// Survey status options
+const SURVEY_STATUS = {
+  DRAFT: 'draft',
+  ACTIVE: 'active',
+  COMPLETED: 'completed'
+};
+
 const Survey = () => {
   const [surveys, setSurveys] = useState([]);
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -387,6 +394,31 @@ const Survey = () => {
     }
   };
 
+  const handleStatusChange = async (surveyId, newStatus) => {
+    try {
+      const { error } = await supabase
+        .from('surveys')
+        .update({ status: newStatus })
+        .eq('id', surveyId);
+
+      if (error) throw error;
+      
+      // Update local state
+      const updatedSurveys = surveys.map(survey => 
+        survey.id === surveyId ? { ...survey, status: newStatus } : survey
+      );
+      setSurveys(updatedSurveys);
+      
+      // Update the viewing survey if it's the one being modified
+      if (viewingSurvey && viewingSurvey.id === surveyId) {
+        setViewingSurvey({ ...viewingSurvey, status: newStatus });
+      }
+    } catch (error) {
+      console.error('Error updating survey status:', error);
+      alert('Failed to update survey status');
+    }
+  };
+
   const InsightsModal = ({ survey, onClose }) => {
     if (!survey || !survey.insights) return null;
     
@@ -509,14 +541,20 @@ const Survey = () => {
             <div className="survey-info">
               <p className="survey-description">{survey.description}</p>
               <div className="survey-meta">
-                <span className={`status ${surveyStatus.toLowerCase()}`}>
-                  {surveyStatus}
-                </span>
+                <select 
+                  className={`status ${surveyStatus.toLowerCase()}`}
+                  value={surveyStatus}
+                  onChange={(e) => handleStatusChange(survey.id, e.target.value)}
+                >
+                  <option value={SURVEY_STATUS.DRAFT}>Draft</option>
+                  <option value={SURVEY_STATUS.ACTIVE}>Active</option>
+                  <option value={SURVEY_STATUS.COMPLETED}>Completed</option>
+                </select>
                 <span className="respondents">
                   <FaUsers /> {survey.respondents || 0} respondents
                 </span>
                 <span className="date">
-                  <FaClock /> {survey.created_at ? new Date(survey.created_at).toLocaleDateString() : 'N/A'}
+                  <FaClock /> {new Date(survey.created_at).toLocaleDateString()}
                 </span>
               </div>
             </div>

@@ -1220,3 +1220,47 @@
     padding: 1rem;
   }
 }
+
+/* Status styles */
+select.status {
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  border: none;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 0.5rem center;
+  background-size: 1em;
+  padding-right: 2rem;
+}
+
+select.status:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.1);
+}
+
+select.status.active {
+  background-color: #e3f2fd;
+  color: #1976d2;
+}
+
+select.status.completed {
+  background-color: #e8f5e9;
+  color: #2e7d32;
+}
+
+select.status.draft {
+  background-color: #f5f5f5;
+  color: #757575;
+}
+
+/* Style the dropdown options */
+select.status option {
+  background-color: white;
+  color: #333;
+  padding: 8px;
+}
