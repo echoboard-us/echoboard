@@ -1,10 +1,27 @@
-import React, { useState } from 'react';
-import { useSurveys } from '../context/SurveyContext';
-import { FaUsers, FaClock, FaTrash, FaEdit, FaShare, FaRobot, FaLightbulb, FaChartBar, FaChevronDown, FaChevronUp } from 'react-icons/fa';
+import React, { useState, useEffect } from 'react';
+import { supabase } from '../lib/supabase.js';
+import { FaUsers, FaClock, FaTrash, FaEdit, FaShare, FaRobot, FaLightbulb, FaChartBar, FaChevronDown, FaChevronUp, FaLink, FaCopy } from 'react-icons/fa';
 import './Survey.css';
 
+// Question type enum values
+const QUESTION_TYPES = {
+  TEXT: 'short_text',
+  LONG_TEXT: 'long_text',
+  MULTIPLE_CHOICE: 'multiple_choice',
+  CHECKBOX: 'checkbox',
+  DROPDOWN: 'dropdown',
+  RATING: 'rating'
+};
+
+// Survey status options
+const SURVEY_STATUS = {
+  DRAFT: 'draft',
+  ACTIVE: 'active',
+  COMPLETED: 'completed'
+};
+
 const Survey = () => {
-  const { surveys, addSurvey, updateSurvey, deleteSurvey } = useSurveys();
+  const [surveys, setSurveys] = useState([]);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newSurvey, setNewSurvey] = useState({
     title: '',
@@ -12,45 +29,193 @@ const Survey = () => {
     questions: []
   });
   const [editingSurvey, setEditingSurvey] = useState(null);
-  const [surveyToDelete, setSurveyToDelete] = useState(null);
   const [aiQuery, setAiQuery] = useState('');
   const [aiSuggestions, setAiSuggestions] = useState(null);
   const [loading, setLoading] = useState(false);
   const [selectedQuestionIndex, setSelectedQuestionIndex] = useState(null);
   const [selectedSurveyInsights, setSelectedSurveyInsights] = useState(null);
   const [showRawResponses, setShowRawResponses] = useState(false);
-  const [insightsLoading, setInsightsLoading] = useState(false);
+  const [viewingSurvey, setViewingSurvey] = useState(null);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [copySuccess, setCopySuccess] = useState(false);
 
-  const handleCreateSurvey = () => {
+  // Fetch surveys from Supabase
+  useEffect(() => {
+    fetchSurveys();
+  }, []);
+
+  const fetchSurveys = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('surveys')
+        .select(`
+          *,
+          questions (
+            *
+          ),
+          survey_insights (
+            *
+          )
+        `)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setSurveys(data || []);
+    } catch (error) {
+      console.error('Error fetching surveys:', error);
+    }
+  };
+
+  const handleCreateSurvey = async () => {
     if (!newSurvey.title.trim()) {
       alert('Please enter a survey title');
       return;
     }
-    addSurvey(newSurvey);
-    setNewSurvey({ title: '', description: '', questions: [] });
-    setShowCreateForm(false);
+
+    try {
+      // Insert survey without creator_id
+      const { data: surveyData, error: surveyError } = await supabase
+        .from('surveys')
+        .insert([{
+          title: newSurvey.title,
+          description: newSurvey.description,
+          is_public: true,
+          status: 'draft' // Add default status
+        }])
+        .select()
+        .single();
+
+      if (surveyError) {
+        console.error('Survey creation error:', surveyError);
+        alert(`Failed to create survey: ${surveyError.message}`);
+        return;
+      }
+
+      // Insert questions
+      if (newSurvey.questions.length > 0) {
+        const questionsToInsert = newSurvey.questions.map((q, index) => {
+          // Ensure options is always an array
+          const choices = Array.isArray(q.options) ? q.options.filter(opt => opt !== '') : [];
+          
+          return {
+            survey_id: surveyData.id,
+            question: q.text,
+            type: q.type,
+            choices: choices.length > 0 ? choices : null,
+            order: index,
+          };
+        });
+
+        const { error: questionsError } = await supabase
+          .from('questions')
+          .insert(questionsToInsert);
+
+        if (questionsError) {
+          console.error('Questions creation error:', questionsError);
+          alert(`Failed to create questions: ${questionsError.message}`);
+          return;
+        }
+      }
+
+      setNewSurvey({ title: '', description: '', questions: [] });
+      setShowCreateForm(false);
+      fetchSurveys(); // Refresh the surveys list
+    } catch (error) {
+      console.error('Error creating survey:', error);
+      alert(`Failed to create survey: ${error.message}`);
+    }
   };
 
-  const handleUpdateSurvey = () => {
+  const handleUpdateSurvey = async () => {
     if (!editingSurvey.title.trim()) {
       alert('Please enter a survey title');
       return;
     }
-    updateSurvey(editingSurvey.id, editingSurvey);
-    setEditingSurvey(null);
+
+    try {
+      // Update survey without creator_id
+      const { error: surveyError } = await supabase
+        .from('surveys')
+        .update({
+          title: editingSurvey.title,
+          description: editingSurvey.description,
+        })
+        .eq('id', editingSurvey.id);
+
+      if (surveyError) {
+        console.error('Survey update error:', surveyError);
+        alert(`Failed to update survey: ${surveyError.message}`);
+        return;
+      }
+
+      // Delete existing questions
+      const { error: deleteError } = await supabase
+        .from('questions')
+        .delete()
+        .eq('survey_id', editingSurvey.id);
+
+      if (deleteError) {
+        console.error('Questions deletion error:', deleteError);
+        alert(`Failed to update questions: ${deleteError.message}`);
+        return;
+      }
+
+      // Insert updated questions
+      if (editingSurvey.questions.length > 0) {
+        const questionsToInsert = editingSurvey.questions.map((q, index) => {
+          // Ensure options is always an array
+          const choices = Array.isArray(q.options) ? q.options.filter(opt => opt !== '') : [];
+          
+          return {
+            survey_id: editingSurvey.id,
+            question: q.text,
+            type: q.type,
+            choices: choices.length > 0 ? choices : null,
+            order: index,
+          };
+        });
+
+        const { error: questionsError } = await supabase
+          .from('questions')
+          .insert(questionsToInsert);
+
+        if (questionsError) {
+          console.error('Questions creation error:', questionsError);
+          alert(`Failed to update questions: ${questionsError.message}`);
+          return;
+        }
+      }
+
+      setEditingSurvey(null);
+      fetchSurveys(); // Refresh the surveys list
+    } catch (error) {
+      console.error('Error updating survey:', error);
+      alert(`Failed to update survey: ${error.message}`);
+    }
   };
 
-  const handleDeleteSurvey = (surveyId) => {
+  const handleDeleteSurvey = async (surveyId) => {
     if (window.confirm('Are you sure you want to delete this survey? This action cannot be undone.')) {
-      deleteSurvey(surveyId);
-      setSurveyToDelete(null);
+      try {
+        // Delete survey (cascade will handle related records)
+        const { error } = await supabase
+          .from('surveys')
+          .delete()
+          .eq('id', surveyId);
+
+        if (error) throw error;
+        fetchSurveys(); // Refresh the surveys list
+      } catch (error) {
+        console.error('Error deleting survey:', error);
+        alert('Failed to delete survey. Please try again.');
+      }
     }
   };
 
   const addQuestion = (survey = newSurvey) => {
     const updatedQuestions = [...survey.questions, { 
       text: '', 
-      type: 'text',
+      type: QUESTION_TYPES.TEXT,
       options: [],
       required: false
     }];
@@ -63,6 +228,10 @@ const Survey = () => {
 
   const updateQuestion = (index, field, value, survey = newSurvey) => {
     const updatedQuestions = [...survey.questions];
+    // If updating the type field, ensure we use a valid enum value
+    if (field === 'type') {
+      value = QUESTION_TYPES[value.toUpperCase()] || QUESTION_TYPES.TEXT;
+    }
     updatedQuestions[index] = { ...updatedQuestions[index], [field]: value };
     if (editingSurvey) {
       setEditingSurvey({ ...editingSurvey, questions: updatedQuestions });
@@ -173,6 +342,9 @@ const Survey = () => {
           text: suggestion.text
         };
         break;
+      default:
+        // No action needed for unknown suggestion types
+        break;
     }
 
     setEditingSurvey({ ...editingSurvey, questions: updatedQuestions });
@@ -181,7 +353,6 @@ const Survey = () => {
 
   const handleShowInsights = async (survey) => {
     setSelectedSurveyInsights(survey);
-    setInsightsLoading(true);
     try {
       // TODO: Replace with actual API call
       // Simulating API delay
@@ -220,9 +391,49 @@ const Survey = () => {
       setSelectedSurveyInsights({ ...survey, insights: mockInsights });
     } catch (error) {
       console.error('Error fetching insights:', error);
-    } finally {
-      setInsightsLoading(false);
     }
+  };
+
+  const handleStatusChange = async (surveyId, newStatus) => {
+    try {
+      const { error } = await supabase
+        .from('surveys')
+        .update({ status: newStatus })
+        .eq('id', surveyId);
+
+      if (error) throw error;
+      
+      // Update local state
+      const updatedSurveys = surveys.map(survey => 
+        survey.id === surveyId ? { ...survey, status: newStatus } : survey
+      );
+      setSurveys(updatedSurveys);
+      
+      // Update the viewing survey if it's the one being modified
+      if (viewingSurvey && viewingSurvey.id === surveyId) {
+        setViewingSurvey({ ...viewingSurvey, status: newStatus });
+      }
+    } catch (error) {
+      console.error('Error updating survey status:', error);
+      alert('Failed to update survey status');
+    }
+  };
+
+  const prepareQuestionsForEdit = (questions) => {
+    return questions.map(q => ({
+      text: q.question,
+      type: q.type,
+      options: q.choices || [],
+      order: q.order
+    }));
+  };
+
+  const handleEdit = (survey) => {
+    setEditingSurvey({
+      ...survey,
+      questions: prepareQuestionsForEdit(survey.questions)
+    });
+    setShowCreateForm(true);
   };
 
   const InsightsModal = ({ survey, onClose }) => {
@@ -329,6 +540,111 @@ const Survey = () => {
     );
   };
 
+  const ViewSurveyModal = ({ survey, onClose }) => {
+    if (!survey) return null;
+
+    // Get a safe status value
+    const surveyStatus = survey.status || 'draft';
+
+    return (
+      <div className="modal-overlay">
+        <div className="view-survey-modal">
+          <div className="modal-header">
+            <h2>{survey.title}</h2>
+            <button className="close-modal-btn" onClick={onClose}>×</button>
+          </div>
+          
+          <div className="modal-content">
+            <div className="survey-info">
+              <p className="survey-description">{survey.description}</p>
+              <div className="survey-meta">
+                <select 
+                  className={`status ${surveyStatus.toLowerCase()}`}
+                  value={surveyStatus}
+                  onChange={(e) => handleStatusChange(survey.id, e.target.value)}
+                >
+                  <option value={SURVEY_STATUS.DRAFT}>Draft</option>
+                  <option value={SURVEY_STATUS.ACTIVE}>Active</option>
+                  <option value={SURVEY_STATUS.COMPLETED}>Completed</option>
+                </select>
+                <span className="respondents">
+                  <FaUsers /> {survey.respondents || 0} respondents
+                </span>
+                <span className="date">
+                  <FaClock className="icon" /> {survey.created_at ? new Date(survey.created_at).toLocaleDateString() : 'N/A'}
+                </span>
+              </div>
+            </div>
+
+            <div className="survey-questions">
+              <h3>Questions</h3>
+              {survey.questions && survey.questions.map((question, index) => (
+                <div key={index} className="survey-question">
+                  <div className="question-number">Q{index + 1}</div>
+                  <div className="question-content">
+                    <p className="question-text">{question.question}</p>
+                    {question.required && <span className="required-badge">Required</span>}
+                    
+                    {/* Display options based on question type */}
+                    {(question.type === 'multiple_choice' || question.type === 'checkbox' || question.type === 'dropdown') && question.choices && (
+                      <div className="question-options">
+                        {question.choices.map((option, optionIndex) => (
+                          <div key={optionIndex} className="option">
+                            {question.type === 'checkbox' ? '☐' : '○'} {option}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {question.type === 'rating' && (
+                      <div className="rating-preview">
+                        {[1, 2, 3, 4, 5].map(num => (
+                          <span key={num} className="rating-star">★</span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="survey-actions">
+              <button className="share-btn" onClick={() => setShowShareModal(true)}>
+                <FaShare /> Share Survey
+              </button>
+            </div>
+
+            {showShareModal && (
+              <div className="share-modal">
+                <div className="share-content">
+                  <h3>Share Survey</h3>
+                  <div className="share-link">
+                    <FaLink />
+                    <input 
+                      type="text" 
+                      value={`${window.location.origin}/survey/${survey.id}`}
+                      readOnly
+                    />
+                    <button onClick={() => {
+                      navigator.clipboard.writeText(`${window.location.origin}/survey/${survey.id}`);
+                      setCopySuccess(true);
+                      setTimeout(() => setCopySuccess(false), 2000);
+                    }}>
+                      {copySuccess ? 'Copied!' : <FaCopy />}
+                    </button>
+                  </div>
+                  <button className="close-share-btn" onClick={() => setShowShareModal(false)}>
+                    Close
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const renderQuestionForm = (question, index, survey = newSurvey) => (
     <div key={index} className="question-item">
     <div className="question-header">
@@ -348,11 +664,12 @@ const Survey = () => {
         value={question.type}
         onChange={(e) => updateQuestion(index, 'type', e.target.value, survey)}
       >
-        <option value="text">Text</option>
-        <option value="multiple-choice">Multiple Choice</option>
-        <option value="rating">Rating</option>
-        <option value="checkbox">Checkbox</option>
-        <option value="dropdown">Dropdown</option>
+        <option value={QUESTION_TYPES.TEXT}>Short Text</option>
+        <option value={QUESTION_TYPES.LONG_TEXT}>Long Text</option>
+        <option value={QUESTION_TYPES.MULTIPLE_CHOICE}>Multiple Choice</option>
+        <option value={QUESTION_TYPES.CHECKBOX}>Checkbox</option>
+        <option value={QUESTION_TYPES.DROPDOWN}>Dropdown</option>
+        <option value={QUESTION_TYPES.RATING}>Rating</option>
       </select>
 
       {/* Required checkbox */}
@@ -547,28 +864,34 @@ const Survey = () => {
             {surveys.map((survey) => (
               <div key={survey.id} className="survey-card">
                 <div className="survey-card-header">
-                  <span className={`status ${survey.status.toLowerCase()}`}>
-                    {survey.status}
+                  <span className={`status ${(survey.status || 'draft').toLowerCase()}`}>
+                    {survey.status || 'draft'}
                   </span>
                   <span className="date">
-                    <FaClock className="icon" /> {survey.date}
+                    <FaClock className="icon" /> {survey.created_at ? new Date(survey.created_at).toLocaleDateString() : 'N/A'}
                   </span>
                 </div>
                 <h3>{survey.title}</h3>
                 <p>{survey.description}</p>
                 <div className="survey-stats">
-                  <span><FaUsers className="icon" /> {survey.respondents} respondents</span>
-                  <span>{survey.questions.length} questions</span>
+                  <span><FaUsers className="icon" /> {survey.respondents || 0} respondents</span>
+                  <span>{survey.questions ? survey.questions.length : 0} questions</span>
                 </div>
                 <div className="survey-actions">
                   <button 
                     className="edit-survey-btn"
-                    onClick={() => setEditingSurvey(survey)}
+                    onClick={() => handleEdit(survey)}
                   >
                     <FaEdit /> Edit
                   </button>
                   <button 
                     className="view-survey-btn"
+                    onClick={() => setViewingSurvey(survey)}
+                  >
+                    <FaShare /> View & Share
+                  </button>
+                  <button 
+                    className="insights-btn"
                     onClick={() => handleShowInsights(survey)}
                   >
                     <FaChartBar /> Insights
@@ -590,6 +913,17 @@ const Survey = () => {
         <InsightsModal 
           survey={selectedSurveyInsights} 
           onClose={() => setSelectedSurveyInsights(null)} 
+        />
+      )}
+
+      {viewingSurvey && (
+        <ViewSurveyModal
+          survey={viewingSurvey}
+          onClose={() => {
+            setViewingSurvey(null);
+            setShowShareModal(false);
+            setCopySuccess(false);
+          }}
         />
       )}
     </div>

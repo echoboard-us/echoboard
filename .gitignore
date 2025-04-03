@@ -1,23 +1,53 @@
-# dependencies
-/node_modules
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# Dependencies
+node_modules/
 /.pnp
 .pnp.js
 
-# testing
+# Build outputs
+/build
+.next/
+out/
+
+# Testing
 /coverage
 
-# production
-/build
-.next
-out
-
-# misc
-.DS_Store
+# Environment Variables
+.env
 .env.local
+.env.*
 .env.development.local
 .env.test.local
 .env.production.local
 
+# Logs
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Debug files
+.debug/
+debug.log
+
+# Misc
+.cache/
+dist/
+.env*.local
