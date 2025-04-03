@@ -6,6 +6,7 @@ import Insights from "./components/Insights";
 import Survey from "./components/Survey";
 import SurveyResponse from "./components/SurveyResponse";
 import Analytics from "./components/Analytics";
+import Teams from "./components/Teams";
 import { SurveyProvider } from "./context/SurveyContext";
 import { ThemeProvider } from "./context/ThemeContext";
 import { useTheme } from "./context/ThemeContext";
@@ -24,6 +25,7 @@ const ThemeToggle = () => {
 
 function App() {
   return (
+
     <div className="App">
       <ThemeProvider>
         <SurveyProvider>
@@ -43,6 +45,7 @@ function App() {
                     <Routes>
                       <Route path="/" element={<Dashboard />} />
                       <Route path="/insights" element={<Insights />} />
+                      <Route path="/teams" element={<Teams />} />
                       <Route path="/surveys" element={<Survey />} />
                       <Route path="/analytics" element={<Analytics />} />
                     </Routes>
@@ -54,6 +57,7 @@ function App() {
         </SurveyProvider>
       </ThemeProvider>
     </div>
+
   );
 }
 
