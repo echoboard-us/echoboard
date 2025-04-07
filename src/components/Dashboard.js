@@ -1,24 +1,22 @@
 import React, { useState } from 'react';
 import { 
-  FaSearch, FaUser, FaCalendar, FaDollarSign, FaBriefcase, 
+  FaSearch, FaCalendar, FaDollarSign, FaBriefcase, 
   FaBell, FaCog, FaRobot, FaChevronDown, FaSyncAlt,
   FaDownload, FaSave, FaTimes, FaGripVertical, FaUsers,
-  FaProjectDiagram, FaChartLine, FaChevronLeft, FaChevronRight
+  FaProjectDiagram, FaChartLine
 } from 'react-icons/fa';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import './Dashboard.css';
 
 const Dashboard = () => {
   const [viewMode, setViewMode] = useState('Weekly');
-  const [aiPanelOpen, setAiPanelOpen] = useState(false);
   const [currentTeam, setCurrentTeam] = useState('Strategy Team');
   const [aiQuery, setAiQuery] = useState('');
-  const [lastUpdated, setLastUpdated] = useState(new Date().toLocaleString());
+  const [lastUpdated] = useState(new Date().toLocaleString());
   const [teamOptions] = useState(['Strategy Team', 'Technology Team', 'Operations Team', 'Finance Team']);
   const [teamDropdownOpen, setTeamDropdownOpen] = useState(false);
   const [aiSidePanelExpanded, setAiSidePanelExpanded] = useState(false);
 
-  // Example prompt suggestions
   const promptSuggestions = [
     "Show project completion trends",
     "Compare client satisfaction Q1 vs Q2",
@@ -26,7 +24,6 @@ const Dashboard = () => {
     "Identify high-growth client sectors"
   ];
 
-  // Mock data for stats
   const stats = [
     {
       title: 'Active Projects',
@@ -66,32 +63,6 @@ const Dashboard = () => {
     }
   ];
 
-  // Mock data for projects
-  const projects = [
-    {
-      name: 'Digital Transformation',
-      client: 'TechCorp Inc.',
-      team: 'Technology',
-      members: '6 Consultants',
-      status: 'In Progress'
-    },
-    {
-      name: 'Market Entry Strategy',
-      client: 'Global Ventures',
-      team: 'Strategy',
-      members: '4 Consultants',
-      status: 'Planning'
-    },
-    {
-      name: 'Operations Optimization',
-      client: 'Manufacturing Co.',
-      team: 'Operations',
-      members: '5 Consultants',
-      status: 'In Progress'
-    }
-  ];
-
-  // Mock data for performance metrics
   const performanceData = [
     { week: 'Week 1', value: 82 },
     { week: 'Week 2', value: 85 },
@@ -102,26 +73,6 @@ const Dashboard = () => {
     { week: 'Week 7', value: 90 }
   ];
 
-  // Mock data for top performing sectors
-  const sectors = [
-    {
-      name: 'Technology & Digital',
-      growth: '+24%',
-      revenue: '$2.8M'
-    },
-    {
-      name: 'Financial Services',
-      growth: '+18%',
-      revenue: '$2.1M'
-    },
-    {
-      name: 'Healthcare & Life Sciences',
-      growth: '+15%',
-      revenue: '$1.9M'
-    }
-  ];
-
-  // Mock data for additional charts
   const utilizationData = [
     { week: 'Week 1', value: 78 },
     { week: 'Week 2', value: 82 },
@@ -142,7 +93,6 @@ const Dashboard = () => {
     { week: 'Week 7', value: 1250000 }
   ];
 
-  // Add campaign performance data
   const campaignData = [
     { week: 'Week 1', impressions: 125000, clicks: 2800 },
     { week: 'Week 2', impressions: 145000, clicks: 3200 },
@@ -155,20 +105,18 @@ const Dashboard = () => {
 
   const handleAiQuery = (e) => {
     e.preventDefault();
-    // Here you would typically make an API call to process the AI query
-    console.log('Processing query:', aiQuery);
-    setAiPanelOpen(true);
+    setAiSidePanelExpanded(true);
   };
 
   const handleTeamChange = (team) => {
     setCurrentTeam(team);
+    setTeamDropdownOpen(false);
   };
 
   const handleAutoUpdateToggle = (index) => {
-    // Toggle auto-update status for a stat card
     const updatedStats = [...stats];
     updatedStats[index].autoUpdate = !updatedStats[index].autoUpdate;
-    // You would typically update the state here
+    console.warn('Auto-update toggle visual only, state not updated.', updatedStats[index]);
   };
 
   const toggleAiPanel = () => {
@@ -177,13 +125,11 @@ const Dashboard = () => {
 
   return (
     <div className="dashboard-container">
-      {/* Dashboard Title Section */}
       <div className="dashboard-title-section">
         <h1>Dashboard</h1>
         <p>Your own customizable insights dashboard for monitoring performance metrics and analytics.</p>
       </div>
 
-      {/* Digital Advertising Performance Dashboard Header */}
       <div className="dashboard-header">
         <div className="header-content">
           <div className="header-left">
@@ -240,7 +186,6 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* Stats Overview */}
       <div className="stats-overview">
         {stats.map((stat, index) => (
           <div key={index} className="stat-card" draggable="true">
@@ -265,9 +210,7 @@ const Dashboard = () => {
         ))}
       </div>
 
-      {/* Dashboard Cards Grid */}
       <div className="dashboard-cards">
-        {/* Team Performance Card */}
         <div className="dashboard-card">
           <div className="card-header">
             <h2 className="card-title">Team Performance Metrics</h2>
@@ -316,7 +259,6 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Consultant Utilization Card */}
         <div className="dashboard-card">
           <div className="card-header">
             <h2 className="card-title">Consultant Utilization</h2>
@@ -365,7 +307,6 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Revenue Trends Card */}
         <div className="dashboard-card">
           <div className="card-header">
             <h2 className="card-title">Revenue Trends</h2>
@@ -414,7 +355,6 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Campaign Performance Card */}
         <div className="dashboard-card">
           <div className="card-header">
             <h2 className="card-title">Campaign Performance</h2>
@@ -475,7 +415,6 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* AI Assistant Side Panel */}
       <div className={`ai-side-panel ${aiSidePanelExpanded ? 'expanded' : ''}`}>
         <div className="panel-header">
           <h3>Echo AI Assistant</h3>
@@ -546,7 +485,6 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* Footer */}
       <div className="dashboard-footer">
         <div className="footer-left">
           <span>Last updated: {lastUpdated}</span>

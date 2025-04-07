@@ -60,3 +60,63 @@
   font-size: 1rem;
   font-weight: 500;
 }
+
+/* Sidebar Footer (User Info & Logout) */
+.sidebar-footer {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  padding: 1rem 1.5rem; /* Match sidebar padding */
+  border-top: 1px solid var(--border-color);
+  background-color: var(--bg-secondary); /* Match sidebar background */
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.user-icon-sidebar {
+  font-size: 1.5rem;
+  color: var(--text-secondary);
+  margin-right: 0.75rem;
+}
+
+.user-email-sidebar {
+  font-size: 0.875rem;
+  color: var(--text-primary);
+  font-weight: 500;
+  /* Prevent email from wrapping or overflowing */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 150px; /* Adjust as needed */
+}
+
+.logout-button-sidebar {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 0.6rem 0.5rem;
+  background-color: transparent;
+  border: 1px solid transparent; /* Keep alignment */
+  color: var(--text-secondary);
+  text-align: left;
+  font-size: 0.9rem;
+  font-weight: 500;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: color 0.2s, background-color 0.2s;
+}
+
+.logout-icon-sidebar {
+  margin-right: 0.75rem;
+  font-size: 1.1rem;
+}
+
+.logout-button-sidebar:hover {
+  color: var(--primary-color); /* Use primary color for hover */
+  background-color: var(--bg-hover);
+}

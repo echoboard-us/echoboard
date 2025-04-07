@@ -5,6 +5,15 @@
   margin-left: 250px; /* Width of the sidebar */
   background-color: var(--bg-primary);
   min-height: 100vh;
+  /* Added flex properties */
+  display: flex;
+  flex-direction: column;
+}
+
+/* Added styles for page content wrapper */
+.page-content {
+  flex-grow: 1; /* Allow this container to grow and fill space */
+  /* Add padding or other styles if needed */
 }
 
 :root {
