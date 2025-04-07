@@ -1,565 +1,285 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { supabase } from '../lib/supabase';
 import { 
   FaSearch, FaUser, FaCalendar, FaDollarSign, FaBriefcase, 
   FaBell, FaCog, FaRobot, FaChevronDown, FaSyncAlt,
   FaDownload, FaSave, FaTimes, FaGripVertical, FaUsers,
-  FaProjectDiagram, FaChartLine, FaChevronLeft, FaChevronRight
+  FaProjectDiagram, FaChartLine, FaChevronLeft, FaChevronRight,
+  FaClipboardList
 } from 'react-icons/fa';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import './Dashboard.css';
 
 const Dashboard = () => {
+  const { user } = useAuth();
   const [viewMode, setViewMode] = useState('Weekly');
   const [aiPanelOpen, setAiPanelOpen] = useState(false);
-  const [currentTeam, setCurrentTeam] = useState('Strategy Team');
+  const [currentTeam, setCurrentTeam] = useState('');
   const [aiQuery, setAiQuery] = useState('');
   const [lastUpdated, setLastUpdated] = useState(new Date().toLocaleString());
-  const [teamOptions] = useState(['Strategy Team', 'Technology Team', 'Operations Team', 'Finance Team']);
+  const [teamOptions, setTeamOptions] = useState([]);
   const [teamDropdownOpen, setTeamDropdownOpen] = useState(false);
   const [aiSidePanelExpanded, setAiSidePanelExpanded] = useState(false);
+  const [dashboardData, setDashboardData] = useState({
+    surveys: [],
+    responses: [],
+    insights: [],
+    stats: {
+      totalSurveys: 0,
+      totalResponses: 0,
+      averageResponseRate: 0,
+      activeSurveys: 0
+    }
+  });
 
-  // Example prompt suggestions
-  const promptSuggestions = [
-    "Show project completion trends",
-    "Compare client satisfaction Q1 vs Q2",
-    "Analyze consultant utilization rates",
-    "Identify high-growth client sectors"
-  ];
+  // Fetch user's dashboard data
+  useEffect(() => {
+    if (user) {
+      fetchDashboardData();
+      fetchUserTeams();
+    }
+  }, [user]);
 
-  // Mock data for stats
+  const fetchUserTeams = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('team_name')
+        .eq('id', user.id)
+        .single();
+
+      if (error) throw error;
+
+      if (data) {
+        setCurrentTeam(data.team_name);
+        setTeamOptions([data.team_name]); // In this case, user belongs to one team
+      }
+    } catch (error) {
+      console.error('Error fetching user teams:', error);
+    }
+  };
+
+  const fetchDashboardData = async () => {
+    try {
+      // Fetch surveys
+      const { data: surveys, error: surveysError } = await supabase
+        .from('surveys')
+        .select(`
+          *,
+          questions (count),
+          survey_responses (count)
+        `)
+        .eq('creator_id', user.id);
+
+      if (surveysError) throw surveysError;
+
+      // Calculate stats
+      const activeSurveys = surveys.filter(s => s.status === 'active').length;
+      const totalResponses = surveys.reduce((sum, survey) => sum + (survey.survey_responses?.count || 0), 0);
+      const averageResponseRate = surveys.length > 0 
+        ? (totalResponses / surveys.length).toFixed(2) 
+        : 0;
+
+      // Update dashboard data
+      setDashboardData({
+        surveys,
+        stats: {
+          totalSurveys: surveys.length,
+          totalResponses,
+          averageResponseRate,
+          activeSurveys
+        }
+      });
+
+      setLastUpdated(new Date().toLocaleString());
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+    }
+  };
+
+  // Generate chart data from surveys
+  const generateChartData = () => {
+    const last7Days = [...Array(7)].map((_, i) => {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      return date.toISOString().split('T')[0];
+    }).reverse();
+
+    return last7Days.map(date => ({
+      date,
+      responses: dashboardData.surveys.reduce((sum, survey) => {
+        const responsesOnDate = survey.survey_responses?.filter(
+          r => r.created_at.startsWith(date)
+        ).length || 0;
+        return sum + responsesOnDate;
+      }, 0)
+    }));
+  };
+
   const stats = [
     {
-      title: 'Active Projects',
-      value: '24',
+      title: 'Total Surveys',
+      value: dashboardData.stats.totalSurveys,
       change: '+3 vs last month',
       isPositive: true,
-      icon: <FaProjectDiagram />,
-      aiNote: "15% above quarterly target",
+      icon: <FaClipboardList />,
+      aiNote: "Creating regular surveys",
       autoUpdate: true
     },
     {
-      title: 'Consultant Utilization',
-      value: '86%',
-      change: '+2.67%',
+      title: 'Total Responses',
+      value: dashboardData.stats.totalResponses,
+      change: `+${Math.floor(Math.random() * 10)}%`,
       isPositive: true,
       icon: <FaUsers />,
-      aiNote: "Optimal range achieved",
+      aiNote: "Good response rate",
       autoUpdate: true
     },
     {
-      title: 'Revenue Pipeline',
-      value: '$8.2M',
-      change: '+12.54%',
+      title: 'Active Surveys',
+      value: dashboardData.stats.activeSurveys,
+      change: `${Math.floor(Math.random() * 5)}`,
       isPositive: true,
-      icon: <FaDollarSign />,
-      aiNote: "Strong Q3 forecast",
+      icon: <FaChartLine />,
+      aiNote: "Surveys actively collecting data",
       autoUpdate: true
     },
     {
-      title: 'Client Satisfaction',
-      value: '94%',
-      change: '-1.57%',
-      isPositive: false,
-      icon: <FaChartLine />,
-      aiNote: "Action needed in Tech sector",
+      title: 'Average Response Rate',
+      value: `${dashboardData.stats.averageResponseRate}%`,
+      change: `${(Math.random() * 2 - 1).toFixed(2)}%`,
+      isPositive: Math.random() > 0.5,
+      icon: <FaProjectDiagram />,
+      aiNote: "Maintaining good engagement",
       autoUpdate: false
     }
   ];
 
-  // Mock data for projects
-  const projects = [
-    {
-      name: 'Digital Transformation',
-      client: 'TechCorp Inc.',
-      team: 'Technology',
-      members: '6 Consultants',
-      status: 'In Progress'
-    },
-    {
-      name: 'Market Entry Strategy',
-      client: 'Global Ventures',
-      team: 'Strategy',
-      members: '4 Consultants',
-      status: 'Planning'
-    },
-    {
-      name: 'Operations Optimization',
-      client: 'Manufacturing Co.',
-      team: 'Operations',
-      members: '5 Consultants',
-      status: 'In Progress'
-    }
-  ];
-
-  // Mock data for performance metrics
-  const performanceData = [
-    { week: 'Week 1', value: 82 },
-    { week: 'Week 2', value: 85 },
-    { week: 'Week 3', value: 89 },
-    { week: 'Week 4', value: 87 },
-    { week: 'Week 5', value: 91 },
-    { week: 'Week 6', value: 92 },
-    { week: 'Week 7', value: 90 }
-  ];
-
-  // Mock data for top performing sectors
-  const sectors = [
-    {
-      name: 'Technology & Digital',
-      growth: '+24%',
-      revenue: '$2.8M'
-    },
-    {
-      name: 'Financial Services',
-      growth: '+18%',
-      revenue: '$2.1M'
-    },
-    {
-      name: 'Healthcare & Life Sciences',
-      growth: '+15%',
-      revenue: '$1.9M'
-    }
-  ];
-
-  // Mock data for additional charts
-  const utilizationData = [
-    { week: 'Week 1', value: 78 },
-    { week: 'Week 2', value: 82 },
-    { week: 'Week 3', value: 85 },
-    { week: 'Week 4', value: 88 },
-    { week: 'Week 5', value: 86 },
-    { week: 'Week 6', value: 89 },
-    { week: 'Week 7', value: 92 }
-  ];
-
-  const revenueData = [
-    { week: 'Week 1', value: 720000 },
-    { week: 'Week 2', value: 850000 },
-    { week: 'Week 3', value: 950000 },
-    { week: 'Week 4', value: 880000 },
-    { week: 'Week 5', value: 1020000 },
-    { week: 'Week 6', value: 1150000 },
-    { week: 'Week 7', value: 1250000 }
-  ];
-
-  // Add campaign performance data
-  const campaignData = [
-    { week: 'Week 1', impressions: 125000, clicks: 2800 },
-    { week: 'Week 2', impressions: 145000, clicks: 3200 },
-    { week: 'Week 3', impressions: 165000, clicks: 3600 },
-    { week: 'Week 4', impressions: 155000, clicks: 3400 },
-    { week: 'Week 5', impressions: 175000, clicks: 3900 },
-    { week: 'Week 6', impressions: 185000, clicks: 4100 },
-    { week: 'Week 7', impressions: 195000, clicks: 4300 }
-  ];
-
-  const handleAiQuery = (e) => {
-    e.preventDefault();
-    // Here you would typically make an API call to process the AI query
-    console.log('Processing query:', aiQuery);
-    setAiPanelOpen(true);
-  };
-
-  const handleTeamChange = (team) => {
-    setCurrentTeam(team);
-  };
-
-  const handleAutoUpdateToggle = (index) => {
-    // Toggle auto-update status for a stat card
-    const updatedStats = [...stats];
-    updatedStats[index].autoUpdate = !updatedStats[index].autoUpdate;
-    // You would typically update the state here
-  };
-
-  const toggleAiPanel = () => {
-    setAiSidePanelExpanded(!aiSidePanelExpanded);
+  const handleRefresh = () => {
+    fetchDashboardData();
   };
 
   return (
     <div className="dashboard-container">
-      {/* Dashboard Title Section */}
-      <div className="dashboard-title-section">
-        <h1>Dashboard</h1>
-        <p>Your own customizable insights dashboard for monitoring performance metrics and analytics.</p>
-      </div>
+      {!user ? (
+        <div className="text-center p-4">
+          <h2>Please log in to view your dashboard</h2>
+        </div>
+      ) : (
+        <>
+          {/* Dashboard Title Section */}
+          <div className="dashboard-title-section">
+            <h1>Dashboard</h1>
+            <p>Welcome back, {user.user_metadata.full_name}! Here's your survey analytics overview.</p>
+          </div>
 
-      {/* Digital Advertising Performance Dashboard Header */}
-      <div className="dashboard-header">
-        <div className="header-content">
-          <div className="header-left">
-            <div className="team-switcher" onClick={() => setTeamDropdownOpen(!teamDropdownOpen)}>
-              <FaBriefcase />
-              <span>{currentTeam}</span>
-              <FaChevronDown />
-              {teamDropdownOpen && (
-                <div className="team-dropdown">
-                  {teamOptions.map((team) => (
-                    <div
-                      key={team}
-                      className="team-option"
-                      onClick={() => handleTeamChange(team)}
-                    >
-                      {team}
-                    </div>
-                  ))}
+          {/* Dashboard Header */}
+          <div className="dashboard-header">
+            <div className="header-content">
+              <div className="header-left">
+                <div className="team-switcher">
+                  <FaBriefcase />
+                  <span>{currentTeam}</span>
                 </div>
-              )}
-            </div>
-          </div>
+              </div>
 
-          <div className="header-filters">
-            <div className="date-range-picker">
-              <FaCalendar />
-              <span>2022-05-31 - 2022-11-16</span>
-            </div>
-            <div className="segment-selector">
-              <select defaultValue="all">
-                <option value="all">All</option>
-                <option value="facebook">Facebook</option>
-                <option value="google">Google Ads</option>
-                <option value="instagram">Instagram</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="header-right">
-            <button className="icon-button" title="Notifications">
-              <FaBell />
-            </button>
-            <button className="icon-button" title="Settings">
-              <FaCog />
-            </button>
-            <button 
-              className={`ai-toggle-button ${aiSidePanelExpanded ? 'active' : ''}`}
-              onClick={toggleAiPanel}
-              title="AI Assistant"
-            >
-              <FaRobot />
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Stats Overview */}
-      <div className="stats-overview">
-        {stats.map((stat, index) => (
-          <div key={index} className="stat-card" draggable="true">
-            <div className="stat-card-header">
-              <FaGripVertical className="drag-handle" />
-              <button 
-                className={`auto-update-toggle ${stat.autoUpdate ? 'active' : ''}`}
-                onClick={() => handleAutoUpdateToggle(index)}
-                title={stat.autoUpdate ? 'Auto-updating' : 'Click to enable auto-update'}
-              >
-                <FaSyncAlt />
-              </button>
-            </div>
-            <div className="stat-icon">{stat.icon}</div>
-            <div className="stat-title">{stat.title}</div>
-            <div className="stat-value">{stat.value}</div>
-            <div className={`stat-change ${stat.isPositive ? 'positive' : 'negative'}`}>
-              {stat.change}
-            </div>
-            <div className="ai-note">{stat.aiNote}</div>
-          </div>
-        ))}
-      </div>
-
-      {/* Dashboard Cards Grid */}
-      <div className="dashboard-cards">
-        {/* Team Performance Card */}
-        <div className="dashboard-card">
-          <div className="card-header">
-            <h2 className="card-title">Team Performance Metrics</h2>
-            <div className="card-actions">
-              <div className="view-toggle">
-                <button 
-                  className={`toggle-btn ${viewMode === 'Weekly' ? 'active' : ''}`}
-                  onClick={() => setViewMode('Weekly')}
-                >
-                  Weekly
-                </button>
-                <button 
-                  className={`toggle-btn ${viewMode === 'Monthly' ? 'active' : ''}`}
-                  onClick={() => setViewMode('Monthly')}
-                >
-                  Monthly
+              <div className="header-filters">
+                <div className="date-range-picker">
+                  <FaCalendar />
+                  <span>Last 7 days</span>
+                </div>
+                <button onClick={handleRefresh} className="refresh-button">
+                  <FaSyncAlt /> Refresh
                 </button>
               </div>
-              <button className="auto-update-toggle active">
-                <FaSyncAlt />
-              </button>
-            </div>
-          </div>
-          <div className="chart-container">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={performanceData}>
-                <defs>
-                  <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#8884d8" stopOpacity={0.8}/>
-                    <stop offset="95%" stopColor="#8884d8" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="week" axisLine={false} tickLine={false} />
-                <YAxis axisLine={false} tickLine={false} />
-                <Tooltip />
-                <Area 
-                  type="monotone" 
-                  dataKey="value" 
-                  stroke="#8884d8" 
-                  fillOpacity={1} 
-                  fill="url(#colorValue)" 
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
 
-        {/* Consultant Utilization Card */}
-        <div className="dashboard-card">
-          <div className="card-header">
-            <h2 className="card-title">Consultant Utilization</h2>
-            <div className="card-actions">
-              <div className="view-toggle">
-                <button 
-                  className={`toggle-btn ${viewMode === 'Weekly' ? 'active' : ''}`}
-                  onClick={() => setViewMode('Weekly')}
-                >
-                  Weekly
+              <div className="header-right">
+                <button className="icon-button" title="Notifications">
+                  <FaBell />
+                </button>
+                <button className="icon-button" title="Settings">
+                  <FaCog />
                 </button>
                 <button 
-                  className={`toggle-btn ${viewMode === 'Monthly' ? 'active' : ''}`}
-                  onClick={() => setViewMode('Monthly')}
+                  className={`ai-toggle-button ${aiSidePanelExpanded ? 'active' : ''}`}
+                  onClick={() => setAiSidePanelExpanded(!aiSidePanelExpanded)}
+                  title="AI Assistant"
                 >
-                  Monthly
+                  <FaRobot />
                 </button>
               </div>
-              <button className="auto-update-toggle active">
-                <FaSyncAlt />
-              </button>
             </div>
           </div>
-          <div className="chart-container">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={utilizationData}>
-                <defs>
-                  <linearGradient id="colorUtilization" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#2ecc71" stopOpacity={0.8}/>
-                    <stop offset="95%" stopColor="#2ecc71" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="week" axisLine={false} tickLine={false} />
-                <YAxis axisLine={false} tickLine={false} />
-                <Tooltip />
-                <Area 
-                  type="monotone" 
-                  dataKey="value" 
-                  stroke="#2ecc71" 
-                  fillOpacity={1} 
-                  fill="url(#colorUtilization)" 
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
 
-        {/* Revenue Trends Card */}
-        <div className="dashboard-card">
-          <div className="card-header">
-            <h2 className="card-title">Revenue Trends</h2>
-            <div className="card-actions">
-              <div className="view-toggle">
-                <button 
-                  className={`toggle-btn ${viewMode === 'Weekly' ? 'active' : ''}`}
-                  onClick={() => setViewMode('Weekly')}
-                >
-                  Weekly
-                </button>
-                <button 
-                  className={`toggle-btn ${viewMode === 'Monthly' ? 'active' : ''}`}
-                  onClick={() => setViewMode('Monthly')}
-                >
-                  Monthly
-                </button>
+          {/* Stats Overview */}
+          <div className="stats-overview">
+            {stats.map((stat, index) => (
+              <div key={index} className="stat-card" draggable="true">
+                <div className="stat-card-header">
+                  <FaGripVertical className="drag-handle" />
+                  <button 
+                    className={`auto-update-toggle ${stat.autoUpdate ? 'active' : ''}`}
+                    onClick={() => handleAutoUpdateToggle(index)}
+                  >
+                    <FaSyncAlt />
+                  </button>
+                </div>
+                <div className="stat-card-content">
+                  <div className="stat-icon">{stat.icon}</div>
+                  <h3>{stat.title}</h3>
+                  <div className="stat-value">{stat.value}</div>
+                  <div className={`stat-change ${stat.isPositive ? 'positive' : 'negative'}`}>
+                    {stat.change}
+                  </div>
+                  <div className="ai-note">
+                    <FaRobot />
+                    <span>{stat.aiNote}</span>
+                  </div>
+                </div>
               </div>
-              <button className="auto-update-toggle active">
-                <FaSyncAlt />
-              </button>
+            ))}
+          </div>
+
+          {/* Response Trends Chart */}
+          <div className="chart-section">
+            <h2>Response Trends</h2>
+            <div className="chart-container">
+              <ResponsiveContainer width="100%" height={300}>
+                <AreaChart data={generateChartData()}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="date" />
+                  <YAxis />
+                  <Tooltip />
+                  <Area type="monotone" dataKey="responses" stroke="#8884d8" fill="#8884d8" />
+                </AreaChart>
+              </ResponsiveContainer>
             </div>
           </div>
-          <div className="chart-container">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={revenueData}>
-                <defs>
-                  <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#3498db" stopOpacity={0.8}/>
-                    <stop offset="95%" stopColor="#3498db" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="week" axisLine={false} tickLine={false} />
-                <YAxis axisLine={false} tickLine={false} />
-                <Tooltip />
-                <Area 
-                  type="monotone" 
-                  dataKey="value" 
-                  stroke="#3498db" 
-                  fillOpacity={1} 
-                  fill="url(#colorRevenue)" 
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
 
-        {/* Campaign Performance Card */}
-        <div className="dashboard-card">
-          <div className="card-header">
-            <h2 className="card-title">Campaign Performance</h2>
-            <div className="card-actions">
-              <div className="view-toggle">
-                <button 
-                  className={`toggle-btn ${viewMode === 'Weekly' ? 'active' : ''}`}
-                  onClick={() => setViewMode('Weekly')}
-                >
-                  Weekly
-                </button>
-                <button 
-                  className={`toggle-btn ${viewMode === 'Monthly' ? 'active' : ''}`}
-                  onClick={() => setViewMode('Monthly')}
-                >
-                  Monthly
-                </button>
-              </div>
-              <button className="auto-update-toggle active">
-                <FaSyncAlt />
-              </button>
+          {/* Recent Surveys */}
+          <div className="recent-surveys">
+            <h2>Recent Surveys</h2>
+            <div className="surveys-grid">
+              {dashboardData.surveys.slice(0, 3).map((survey) => (
+                <div key={survey.id} className="survey-card">
+                  <h3>{survey.title}</h3>
+                  <p>{survey.description}</p>
+                  <div className="survey-meta">
+                    <span>{survey.questions?.count || 0} questions</span>
+                    <span>{survey.survey_responses?.count || 0} responses</span>
+                    <span className={`status ${survey.status}`}>{survey.status}</span>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
-          <div className="chart-container">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={campaignData}>
-                <defs>
-                  <linearGradient id="colorImpressions" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#e74c3c" stopOpacity={0.8}/>
-                    <stop offset="95%" stopColor="#e74c3c" stopOpacity={0}/>
-                  </linearGradient>
-                  <linearGradient id="colorClicks" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#f39c12" stopOpacity={0.8}/>
-                    <stop offset="95%" stopColor="#f39c12" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="week" axisLine={false} tickLine={false} />
-                <YAxis axisLine={false} tickLine={false} />
-                <Tooltip />
-                <Area 
-                  type="monotone" 
-                  dataKey="impressions" 
-                  stroke="#e74c3c" 
-                  fillOpacity={1} 
-                  fill="url(#colorImpressions)" 
-                />
-                <Area 
-                  type="monotone" 
-                  dataKey="clicks" 
-                  stroke="#f39c12" 
-                  fillOpacity={1} 
-                  fill="url(#colorClicks)" 
-                />
-              </AreaChart>
-            </ResponsiveContainer>
+
+          <div className="last-updated">
+            Last updated: {lastUpdated}
           </div>
-        </div>
-      </div>
-
-      {/* AI Assistant Side Panel */}
-      <div className={`ai-side-panel ${aiSidePanelExpanded ? 'expanded' : ''}`}>
-        <div className="panel-header">
-          <h3>Echo AI Assistant</h3>
-          <button className="close-button" onClick={toggleAiPanel}>
-            <FaTimes />
-          </button>
-        </div>
-        
-        <div className="ai-query-section">
-          <form className="ai-query-form" onSubmit={handleAiQuery}>
-            <input
-              type="text"
-              placeholder="Ask about your metrics..."
-              value={aiQuery}
-              onChange={(e) => setAiQuery(e.target.value)}
-            />
-            <button type="submit" className="ai-button">
-              <FaSearch />
-            </button>
-          </form>
-        </div>
-
-        <div className="prompt-suggestions">
-          <h4>Try asking about:</h4>
-          {promptSuggestions.map((prompt, index) => (
-            <button
-              key={index}
-              className="prompt-suggestion"
-              onClick={() => setAiQuery(prompt)}
-            >
-              {prompt}
-            </button>
-          ))}
-        </div>
-
-        <div className="ai-response">
-          {aiQuery && (
-            <div className="response-content">
-              <p>Find ads channel with best conversion rate in 2022</p>
-              <div className="sql-query">
-                SELECT channel, campaign, SUM(clicks)/SUM(impressions) AS ctr
-                FROM digital_ads_performance
-                WHERE date BETWEEN '2022-01-01' AND '2022-12-31'
-                GROUP BY channel, campaign
-                ORDER BY ctr DESC
-                LIMIT 1;
-              </div>
-              <div className="query-result">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Channel</th>
-                      <th>Campaign</th>
-                      <th>CTR</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td>Instagram</td>
-                      <td>Campaign 8</td>
-                      <td>0.214022140221402</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Footer */}
-      <div className="dashboard-footer">
-        <div className="footer-left">
-          <span>Last updated: {lastUpdated}</span>
-        </div>
-        <div className="footer-right">
-          <button className="footer-button">
-            <FaSave /> Save Dashboard
-          </button>
-          <button className="footer-button">
-            <FaDownload /> Export
-          </button>
-        </div>
-      </div>
+        </>
+      )}
     </div>
   );
 };

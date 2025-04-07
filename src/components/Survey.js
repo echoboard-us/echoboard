@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase.js';
+import { useAuth } from '../context/AuthContext';
 import { FaUsers, FaClock, FaTrash, FaEdit, FaShare, FaRobot, FaLightbulb, FaChartBar, FaChevronDown, FaChevronUp, FaLink, FaCopy } from 'react-icons/fa';
 import './Survey.css';
 
@@ -21,6 +22,7 @@ const SURVEY_STATUS = {
 };
 
 const Survey = () => {
+  const { user } = useAuth();
   const [surveys, setSurveys] = useState([]);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newSurvey, setNewSurvey] = useState({
@@ -41,8 +43,10 @@ const Survey = () => {
 
   // Fetch surveys from Supabase
   useEffect(() => {
-    fetchSurveys();
-  }, []);
+    if (user) {
+      fetchSurveys();
+    }
+  }, [user]);
 
   const fetchSurveys = async () => {
     try {
@@ -57,6 +61,7 @@ const Survey = () => {
             *
           )
         `)
+        .eq('creator_id', user.id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -73,14 +78,15 @@ const Survey = () => {
     }
 
     try {
-      // Insert survey without creator_id
+      // Insert survey with creator_id
       const { data: surveyData, error: surveyError } = await supabase
         .from('surveys')
         .insert([{
           title: newSurvey.title,
           description: newSurvey.description,
           is_public: true,
-          status: 'draft' // Add default status
+          status: 'draft',
+          creator_id: user.id // Add creator_id
         }])
         .select()
         .single();
@@ -94,7 +100,6 @@ const Survey = () => {
       // Insert questions
       if (newSurvey.questions.length > 0) {
         const questionsToInsert = newSurvey.questions.map((q, index) => {
-          // Ensure options is always an array
           const choices = Array.isArray(q.options) ? q.options.filter(opt => opt !== '') : [];
           
           return {
@@ -787,144 +792,152 @@ const Survey = () => {
 
   return (
     <div className="survey-container">
-      <div className="survey-header">
-        <h1>Surveys</h1>
-        <button 
-          className="create-survey-btn"
-          onClick={() => setShowCreateForm(true)}
-        >
-          Create New Survey
-        </button>
-      </div>
-
-      {(showCreateForm || editingSurvey) && (
-        <div className="create-survey-form">
-          <h2>{editingSurvey ? 'Edit Survey' : 'Create New Survey'}</h2>
-          <div className="form-group">
-            <label>Title</label>
-            <input
-              type="text"
-              value={editingSurvey ? editingSurvey.title : newSurvey.title}
-              onChange={(e) => editingSurvey 
-                ? setEditingSurvey({ ...editingSurvey, title: e.target.value })
-                : setNewSurvey({ ...newSurvey, title: e.target.value })
-              }
-            />
-          </div>
-          <div className="form-group">
-            <label>Description</label>
-            <textarea
-              value={editingSurvey ? editingSurvey.description : newSurvey.description}
-              onChange={(e) => editingSurvey
-                ? setEditingSurvey({ ...editingSurvey, description: e.target.value })
-                : setNewSurvey({ ...newSurvey, description: e.target.value })
-              }
-            />
-          </div>
-          
-          <div className="questions-section">
-            <h3>Questions</h3>
-            {(editingSurvey ? editingSurvey.questions : newSurvey.questions).map((question, index) => 
-              renderQuestionForm(question, index, editingSurvey || newSurvey)
-            )}
-            <button 
-              className="add-question-btn" 
-              onClick={() => addQuestion(editingSurvey || newSurvey)}
-            >
-              Add Question
-            </button>
-          </div>
-
-          <div className="form-actions">
-            <button 
-              className="save-survey-btn" 
-              onClick={editingSurvey ? handleUpdateSurvey : handleCreateSurvey}
-            >
-              {editingSurvey ? 'Update Survey' : 'Save Survey'}
-            </button>
-            <button 
-              className="cancel-btn"
-              onClick={() => {
-                setEditingSurvey(null);
-                setShowCreateForm(false);
-              }}
-            >
-              Cancel
-            </button>
-          </div>
+      {!user ? (
+        <div className="text-center p-4">
+          <h2>Please log in to manage your surveys</h2>
         </div>
-      )}
-
-      <div className="surveys-list">
-        <h2>Your Surveys</h2>
-        {surveys.length === 0 ? (
-          <p className="no-surveys">No surveys created yet. Create one to get started!</p>
-        ) : (
-          <div className="surveys-grid">
-            {surveys.map((survey) => (
-              <div key={survey.id} className="survey-card">
-                <div className="survey-card-header">
-                  <span className={`status ${(survey.status || 'draft').toLowerCase()}`}>
-                    {survey.status || 'draft'}
-                  </span>
-                  <span className="date">
-                    <FaClock className="icon" /> {survey.created_at ? new Date(survey.created_at).toLocaleDateString() : 'N/A'}
-                  </span>
-                </div>
-                <h3>{survey.title}</h3>
-                <p>{survey.description}</p>
-                <div className="survey-stats">
-                  <span><FaUsers className="icon" /> {survey.respondents || 0} respondents</span>
-                  <span>{survey.questions ? survey.questions.length : 0} questions</span>
-                </div>
-                <div className="survey-actions">
-                  <button 
-                    className="edit-survey-btn"
-                    onClick={() => handleEdit(survey)}
-                  >
-                    <FaEdit /> Edit
-                  </button>
-                  <button 
-                    className="view-survey-btn"
-                    onClick={() => setViewingSurvey(survey)}
-                  >
-                    <FaShare /> View & Share
-                  </button>
-                  <button 
-                    className="insights-btn"
-                    onClick={() => handleShowInsights(survey)}
-                  >
-                    <FaChartBar /> Insights
-                  </button>
-                  <button 
-                    className="delete-survey-btn"
-                    onClick={() => handleDeleteSurvey(survey.id)}
-                  >
-                    <FaTrash /> Delete
-                  </button>
-                </div>
-              </div>
-            ))}
+      ) : (
+        <>
+          <div className="survey-header">
+            <h1>Surveys</h1>
+            <button 
+              className="create-survey-btn"
+              onClick={() => setShowCreateForm(true)}
+            >
+              Create New Survey
+            </button>
           </div>
-        )}
-      </div>
 
-      {selectedSurveyInsights && (
-        <InsightsModal 
-          survey={selectedSurveyInsights} 
-          onClose={() => setSelectedSurveyInsights(null)} 
-        />
-      )}
+          {(showCreateForm || editingSurvey) && (
+            <div className="create-survey-form">
+              <h2>{editingSurvey ? 'Edit Survey' : 'Create New Survey'}</h2>
+              <div className="form-group">
+                <label>Title</label>
+                <input
+                  type="text"
+                  value={editingSurvey ? editingSurvey.title : newSurvey.title}
+                  onChange={(e) => editingSurvey 
+                    ? setEditingSurvey({ ...editingSurvey, title: e.target.value })
+                    : setNewSurvey({ ...newSurvey, title: e.target.value })
+                  }
+                />
+              </div>
+              <div className="form-group">
+                <label>Description</label>
+                <textarea
+                  value={editingSurvey ? editingSurvey.description : newSurvey.description}
+                  onChange={(e) => editingSurvey
+                    ? setEditingSurvey({ ...editingSurvey, description: e.target.value })
+                    : setNewSurvey({ ...newSurvey, description: e.target.value })
+                  }
+                />
+              </div>
+              
+              <div className="questions-section">
+                <h3>Questions</h3>
+                {(editingSurvey ? editingSurvey.questions : newSurvey.questions).map((question, index) => 
+                  renderQuestionForm(question, index, editingSurvey || newSurvey)
+                )}
+                <button 
+                  className="add-question-btn" 
+                  onClick={() => addQuestion(editingSurvey || newSurvey)}
+                >
+                  Add Question
+                </button>
+              </div>
 
-      {viewingSurvey && (
-        <ViewSurveyModal
-          survey={viewingSurvey}
-          onClose={() => {
-            setViewingSurvey(null);
-            setShowShareModal(false);
-            setCopySuccess(false);
-          }}
-        />
+              <div className="form-actions">
+                <button 
+                  className="save-survey-btn" 
+                  onClick={editingSurvey ? handleUpdateSurvey : handleCreateSurvey}
+                >
+                  {editingSurvey ? 'Update Survey' : 'Save Survey'}
+                </button>
+                <button 
+                  className="cancel-btn"
+                  onClick={() => {
+                    setEditingSurvey(null);
+                    setShowCreateForm(false);
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+
+          <div className="surveys-list">
+            <h2>Your Surveys</h2>
+            {surveys.length === 0 ? (
+              <p className="no-surveys">No surveys created yet. Create one to get started!</p>
+            ) : (
+              <div className="surveys-grid">
+                {surveys.map((survey) => (
+                  <div key={survey.id} className="survey-card">
+                    <div className="survey-card-header">
+                      <span className={`status ${(survey.status || 'draft').toLowerCase()}`}>
+                        {survey.status || 'draft'}
+                      </span>
+                      <span className="date">
+                        <FaClock className="icon" /> {survey.created_at ? new Date(survey.created_at).toLocaleDateString() : 'N/A'}
+                      </span>
+                    </div>
+                    <h3>{survey.title}</h3>
+                    <p>{survey.description}</p>
+                    <div className="survey-stats">
+                      <span><FaUsers className="icon" /> {survey.respondents || 0} respondents</span>
+                      <span>{survey.questions ? survey.questions.length : 0} questions</span>
+                    </div>
+                    <div className="survey-actions">
+                      <button 
+                        className="edit-survey-btn"
+                        onClick={() => handleEdit(survey)}
+                      >
+                        <FaEdit /> Edit
+                      </button>
+                      <button 
+                        className="view-survey-btn"
+                        onClick={() => setViewingSurvey(survey)}
+                      >
+                        <FaShare /> View & Share
+                      </button>
+                      <button 
+                        className="insights-btn"
+                        onClick={() => handleShowInsights(survey)}
+                      >
+                        <FaChartBar /> Insights
+                      </button>
+                      <button 
+                        className="delete-survey-btn"
+                        onClick={() => handleDeleteSurvey(survey.id)}
+                      >
+                        <FaTrash /> Delete
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {selectedSurveyInsights && (
+            <InsightsModal 
+              survey={selectedSurveyInsights} 
+              onClose={() => setSelectedSurveyInsights(null)} 
+            />
+          )}
+
+          {viewingSurvey && (
+            <ViewSurveyModal
+              survey={viewingSurvey}
+              onClose={() => {
+                setViewingSurvey(null);
+                setShowShareModal(false);
+                setCopySuccess(false);
+              }}
+            />
+          )}
+        </>
       )}
     </div>
   );

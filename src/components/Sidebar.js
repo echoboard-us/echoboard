@@ -1,15 +1,29 @@
 import React from "react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import {
   FaTachometerAlt,
   FaClipboardList,
   FaLightbulb,
   FaChartBar,
   FaUsers,
+  FaSignOutAlt,
 } from "react-icons/fa";
+import { useAuth } from "../context/AuthContext";
 import "./Sidebar.css";
 
 const Sidebar = () => {
+  const { signOut } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    try {
+      await signOut();
+      navigate('/login');
+    } catch (error) {
+      console.error('Error logging out:', error);
+    }
+  };
+
   return (
     <aside className="sidebar">
       {/* Sidebar Header */}
@@ -39,6 +53,12 @@ const Sidebar = () => {
           <FaChartBar className="nav-icon" />
           <span>Analytics</span>
         </NavLink>
+
+        {/* Logout Button */}
+        <button onClick={handleLogout} className="nav-link logout-button">
+          <FaSignOutAlt className="nav-icon" />
+          <span>Logout</span>
+        </button>
       </nav>
     </aside>
   );

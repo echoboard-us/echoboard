@@ -8,6 +8,8 @@
   background-color: var(--bg-secondary);
   padding: 1.5rem 1rem;
   border-right: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
 }
 
 /* Sidebar Header */
@@ -26,6 +28,8 @@
 .sidebar-nav {
   display: flex;
   flex-direction: column;
+  flex-grow: 1;
+  height: 100%;
   gap: 0.5rem;
 }
 
@@ -59,4 +63,21 @@
 .nav-link span {
   font-size: 1rem;
   font-weight: 500;
+}
+
+.logout-button {
+  margin-top: auto;
+  background: none;
+  border: none;
+  width: 100%;
+  padding: 1rem;
+  color: inherit;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  transition: background-color 0.3s;
+}
+
+.logout-button:hover {
+  background-color: rgba(255, 255, 255, 0.1);
 }
