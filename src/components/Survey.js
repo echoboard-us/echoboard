@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient.js';
+import { useAuth } from '../context/AuthContext';
 import { FaUsers, FaClock, FaTrash, FaEdit, FaShare, FaRobot, FaLightbulb, FaChartBar, FaChevronDown, FaChevronUp, FaLink, FaCopy } from 'react-icons/fa';
 import './Survey.css';
 
@@ -21,6 +22,7 @@ const SURVEY_STATUS = {
 };
 
 const Survey = () => {
+  const { user } = useAuth(); // Get the current user
   const [surveys, setSurveys] = useState([]);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newSurvey, setNewSurvey] = useState({
@@ -41,25 +43,39 @@ const Survey = () => {
 
   // Fetch surveys from Supabase
   useEffect(() => {
-    fetchSurveys();
-  }, []);
+    if (user) { // Only fetch if we have a user
+      fetchSurveys();
+    }
+  }, [user]); // Re-fetch when user changes
 
   const fetchSurveys = async () => {
     try {
+      console.log('Fetching surveys for user:', user.id);
       const { data, error } = await supabase
         .from('surveys')
         .select(`
           *,
-          questions (
-            *
+          questions:questions(
+            id,
+            question,
+            type,
+            choices,
+            question_order
           ),
-          survey_insights (
-            *
+          survey_insights:survey_insights(
+            id,
+            summary,
+            key_findings,
+            sentiment_analysis,
+            trends,
+            recommendations
           )
         `)
+        .eq('creator_id', user.id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
+      console.log('Fetched surveys:', data);
       setSurveys(data || []);
     } catch (error) {
       console.error('Error fetching surveys:', error);
@@ -73,14 +89,23 @@ const Survey = () => {
     }
 
     try {
-      // Insert survey without creator_id
+      console.log('Creating survey with data:', {
+        title: newSurvey.title,
+        description: newSurvey.description,
+        is_public: true,
+        status: 'draft',
+        creator_id: user.id
+      });
+      
+      // Insert survey with creator_id
       const { data: surveyData, error: surveyError } = await supabase
         .from('surveys')
         .insert([{
           title: newSurvey.title,
           description: newSurvey.description,
           is_public: true,
-          status: 'draft' // Add default status
+          status: 'draft',
+          creator_id: user.id // Add creator_id
         }])
         .select()
         .single();
@@ -90,6 +115,8 @@ const Survey = () => {
         alert(`Failed to create survey: ${surveyError.message}`);
         return;
       }
+
+      console.log('Created survey:', surveyData);
 
       // Insert questions
       if (newSurvey.questions.length > 0) {
@@ -102,9 +129,11 @@ const Survey = () => {
             question: q.text,
             type: q.type,
             choices: choices.length > 0 ? choices : null,
-            order: index,
+            question_order: index,
           };
         });
+
+        console.log('Inserting questions:', questionsToInsert);
 
         const { error: questionsError } = await supabase
           .from('questions')
@@ -119,7 +148,13 @@ const Survey = () => {
 
       setNewSurvey({ title: '', description: '', questions: [] });
       setShowCreateForm(false);
-      fetchSurveys(); // Refresh the surveys list
+      
+      // Add a small delay before fetching to ensure database consistency
+      setTimeout(() => {
+        console.log('Refreshing surveys list...');
+        fetchSurveys();
+      }, 500);
+      
     } catch (error) {
       console.error('Error creating survey:', error);
       alert(`Failed to create survey: ${error.message}`);
@@ -133,14 +168,27 @@ const Survey = () => {
     }
 
     try {
-      // Update survey without creator_id
+      // First verify the user owns this survey
+      const { data: surveyData, error: fetchError } = await supabase
+        .from('surveys')
+        .select('creator_id')
+        .eq('id', editingSurvey.id)
+        .single();
+
+      if (fetchError) throw fetchError;
+      if (surveyData.creator_id !== user.id) {
+        throw new Error('You do not have permission to edit this survey');
+      }
+
+      // Update survey
       const { error: surveyError } = await supabase
         .from('surveys')
         .update({
           title: editingSurvey.title,
           description: editingSurvey.description,
         })
-        .eq('id', editingSurvey.id);
+        .eq('id', editingSurvey.id)
+        .eq('creator_id', user.id); // Additional check to ensure ownership
 
       if (surveyError) {
         console.error('Survey update error:', surveyError);
@@ -171,7 +219,7 @@ const Survey = () => {
             question: q.text,
             type: q.type,
             choices: choices.length > 0 ? choices : null,
-            order: index,
+            question_order: index,
           };
         });
 
@@ -197,17 +245,30 @@ const Survey = () => {
   const handleDeleteSurvey = async (surveyId) => {
     if (window.confirm('Are you sure you want to delete this survey? This action cannot be undone.')) {
       try {
+        // First verify the user owns this survey
+        const { data: surveyData, error: fetchError } = await supabase
+          .from('surveys')
+          .select('creator_id')
+          .eq('id', surveyId)
+          .single();
+
+        if (fetchError) throw fetchError;
+        if (surveyData.creator_id !== user.id) {
+          throw new Error('You do not have permission to delete this survey');
+        }
+
         // Delete survey (cascade will handle related records)
         const { error } = await supabase
           .from('surveys')
           .delete()
-          .eq('id', surveyId);
+          .eq('id', surveyId)
+          .eq('creator_id', user.id); // Additional check to ensure ownership
 
         if (error) throw error;
         fetchSurveys(); // Refresh the surveys list
       } catch (error) {
         console.error('Error deleting survey:', error);
-        alert('Failed to delete survey. Please try again.');
+        alert('Failed to delete survey: ' + error.message);
       }
     }
   };
@@ -396,10 +457,23 @@ const Survey = () => {
 
   const handleStatusChange = async (surveyId, newStatus) => {
     try {
+      // First verify the user owns this survey
+      const { data: surveyData, error: fetchError } = await supabase
+        .from('surveys')
+        .select('creator_id')
+        .eq('id', surveyId)
+        .single();
+
+      if (fetchError) throw fetchError;
+      if (surveyData.creator_id !== user.id) {
+        throw new Error('You do not have permission to update this survey');
+      }
+
       const { error } = await supabase
         .from('surveys')
         .update({ status: newStatus })
-        .eq('id', surveyId);
+        .eq('id', surveyId)
+        .eq('creator_id', user.id); // Additional check to ensure ownership
 
       if (error) throw error;
       
@@ -415,7 +489,7 @@ const Survey = () => {
       }
     } catch (error) {
       console.error('Error updating survey status:', error);
-      alert('Failed to update survey status');
+      alert('Failed to update survey status: ' + error.message);
     }
   };
 
@@ -424,7 +498,7 @@ const Survey = () => {
       text: q.question,
       type: q.type,
       options: q.choices || [],
-      order: q.order
+      question_order: q.question_order
     }));
   };
 
