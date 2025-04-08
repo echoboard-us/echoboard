@@ -3,6 +3,7 @@ import { supabase } from '../supabaseClient.js';
 import { useAuth } from '../context/AuthContext';
 import { FaUsers, FaClock, FaTrash, FaEdit, FaShare, FaRobot, FaLightbulb, FaChartBar, FaChevronDown, FaChevronUp, FaLink, FaCopy } from 'react-icons/fa';
 import './Survey.css';
+import './AiSuggestions.css';
 
 // Question type enum values
 const QUESTION_TYPES = {
@@ -34,12 +35,12 @@ const Survey = () => {
   const [aiQuery, setAiQuery] = useState('');
   const [aiSuggestions, setAiSuggestions] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [selectedQuestionIndex, setSelectedQuestionIndex] = useState(null);
   const [selectedSurveyInsights, setSelectedSurveyInsights] = useState(null);
   const [showRawResponses, setShowRawResponses] = useState(false);
   const [viewingSurvey, setViewingSurvey] = useState(null);
   const [showShareModal, setShowShareModal] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
+  const [showAiInput, setShowAiInput] = useState(null); // Changed to null to track which question is being edited
 
   // Fetch surveys from Supabase
   useEffect(() => {
@@ -235,6 +236,7 @@ const Survey = () => {
       }
 
       setEditingSurvey(null);
+      setShowCreateForm(false); // Add this line to hide the form after updating
       fetchSurveys(); // Refresh the surveys list
     } catch (error) {
       console.error('Error updating survey:', error);
@@ -338,37 +340,53 @@ const Survey = () => {
     e.preventDefault();
     if (!aiQuery.trim() || !editingSurvey) return;
 
+    // Get the current question index from the showAiInput state
+    const index = showAiInput;
+    
     setLoading(true);
     try {
-      // TODO: Replace with actual API call
-      const mockResponse = {
-        suggestions: [
-          {
-            type: 'question_improvement',
-            text: 'Consider adding a rating scale to measure satisfaction levels',
-            questionIndex: selectedQuestionIndex
-          },
-          {
-            type: 'question_addition',
-            text: 'Add a follow-up question about specific pain points',
-            questionIndex: selectedQuestionIndex
-          },
-          {
-            type: 'question_clarification',
-            text: 'Make the question more specific to get better responses',
-            questionIndex: selectedQuestionIndex
-          }
-        ],
-        recommendations: [
-          'Add demographic questions to better segment responses',
-          'Include a mix of quantitative and qualitative questions',
-          'Consider adding a progress indicator for long surveys'
-        ]
+      // Get the current question
+      const currentQuestion = editingSurvey.questions[index];
+      
+      // Prepare the request payload
+      const payload = {
+        question: currentQuestion.text,
+        promptText: aiQuery,
+        questionType: currentQuestion.type || 'text',
+        choices: currentQuestion.options || []
       };
-
-      setAiSuggestions(mockResponse);
+      
+      console.log('Sending AI suggestion request:', payload);
+      
+      // Call our backend API
+      const response = await fetch('http://127.0.0.1:5001/suggest', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`API returned status ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log('AI suggestion response:', data);
+      
+      // Format the suggestions with questionIndex for the UI
+      const formattedSuggestions = data.suggestions.map(suggestion => ({
+        ...suggestion,
+        questionIndex: index
+      }));
+      
+      setAiSuggestions({
+        suggestions: formattedSuggestions,
+        questionIndex: index // Add questionIndex to track which question the suggestions are for
+      });
     } catch (error) {
       console.error('Error fetching AI suggestions:', error);
+      alert('Failed to get AI suggestions: ' + error.message);
     } finally {
       setLoading(false);
     }
@@ -379,37 +397,30 @@ const Survey = () => {
 
     const updatedQuestions = [...editingSurvey.questions];
     
-    switch (suggestion.type) {
-      case 'question_improvement':
-        // Update existing question
-        updatedQuestions[suggestion.questionIndex] = {
-          ...updatedQuestions[suggestion.questionIndex],
-          text: suggestion.text
-        };
-        break;
-      case 'question_addition':
-        // Add new question after the selected one
-        updatedQuestions.splice(suggestion.questionIndex + 1, 0, {
-          text: suggestion.text,
-          type: 'text',
-          options: [],
-          required: false
-        });
-        break;
-      case 'question_clarification':
-        // Update question text with clarification
-        updatedQuestions[suggestion.questionIndex] = {
-          ...updatedQuestions[suggestion.questionIndex],
-          text: suggestion.text
-        };
-        break;
-      default:
-        // No action needed for unknown suggestion types
-        break;
+    // Handle question improvement
+    if (suggestion.type === 'question_improvement') {
+      const questionIndex = suggestion.questionIndex;
+      
+      // Create a copy of the current question
+      const updatedQuestion = { ...updatedQuestions[questionIndex] };
+      
+      // Update the question text
+      updatedQuestion.text = suggestion.text;
+      
+      // If the suggestion includes choices and the question is a type that uses choices
+      if (suggestion.choices && ['multiple_choice', 'checkbox', 'dropdown'].includes(updatedQuestion.type)) {
+        updatedQuestion.options = suggestion.choices;
+      }
+      
+      // Update the question in the questions array
+      updatedQuestions[questionIndex] = updatedQuestion;
+      
+      // Update the editing survey state
+      setEditingSurvey({ ...editingSurvey, questions: updatedQuestions });
+      
+      // Clear suggestions after applying
+      setAiSuggestions(null);
     }
-
-    setEditingSurvey({ ...editingSurvey, questions: updatedQuestions });
-    setAiSuggestions(null);
   };
 
   const handleShowInsights = async (survey) => {
@@ -721,56 +732,56 @@ const Survey = () => {
 
   const renderQuestionForm = (question, index, survey = newSurvey) => (
     <div key={index} className="question-item">
-    <div className="question-header">
-      {/* Question text input wrapped in a container to pick up .question-text styles */}
-      <div className="question-text">
-        <input
-          type="text"
-          placeholder="Question text"
-          value={question.text}
-          onChange={(e) => updateQuestion(index, 'text', e.target.value, survey)}
-        />
+      <div className="question-header">
+        {/* Question text input wrapped in a container to pick up .question-text styles */}
+        <div className="question-text">
+          <input
+            type="text"
+            placeholder="Question text"
+            value={question.text}
+            onChange={(e) => updateQuestion(index, 'text', e.target.value, survey)}
+          />
+        </div>
+        
+        {/* Dropdown with modern styling via .question-type-select */}
+        <select
+          className="question-type-select"
+          value={question.type}
+          onChange={(e) => updateQuestion(index, 'type', e.target.value, survey)}
+        >
+          <option value={QUESTION_TYPES.TEXT}>Short Text</option>
+          <option value={QUESTION_TYPES.LONG_TEXT}>Long Text</option>
+          <option value={QUESTION_TYPES.MULTIPLE_CHOICE}>Multiple Choice</option>
+          <option value={QUESTION_TYPES.CHECKBOX}>Checkbox</option>
+          <option value={QUESTION_TYPES.DROPDOWN}>Dropdown</option>
+          <option value={QUESTION_TYPES.RATING}>Rating</option>
+        </select>
+
+        {/* Required checkbox */}
+        <label className="required-toggle">
+          <input
+            type="checkbox"
+            checked={question.required}
+            onChange={(e) => updateQuestion(index, 'required', e.target.checked, survey)}
+          />
+          Required
+        </label>
+
+        {/* Trash icon button */}
+        <button 
+          className="remove-question-btn"
+          onClick={() => {
+            const updatedQuestions = survey.questions.filter((_, i) => i !== index);
+            if (editingSurvey) {
+              setEditingSurvey({ ...editingSurvey, questions: updatedQuestions });
+            } else {
+              setNewSurvey({ ...survey, questions: updatedQuestions });
+            }
+          }}
+        >
+          <FaTrash />
+        </button>
       </div>
-      
-      {/* Dropdown with modern styling via .question-type-select */}
-      <select
-        className="question-type-select"
-        value={question.type}
-        onChange={(e) => updateQuestion(index, 'type', e.target.value, survey)}
-      >
-        <option value={QUESTION_TYPES.TEXT}>Short Text</option>
-        <option value={QUESTION_TYPES.LONG_TEXT}>Long Text</option>
-        <option value={QUESTION_TYPES.MULTIPLE_CHOICE}>Multiple Choice</option>
-        <option value={QUESTION_TYPES.CHECKBOX}>Checkbox</option>
-        <option value={QUESTION_TYPES.DROPDOWN}>Dropdown</option>
-        <option value={QUESTION_TYPES.RATING}>Rating</option>
-      </select>
-
-      {/* Required checkbox */}
-      <label className="required-toggle">
-        <input
-          type="checkbox"
-          checked={question.required}
-          onChange={(e) => updateQuestion(index, 'required', e.target.checked, survey)}
-        />
-        Required
-      </label>
-
-      {/* Trash icon button */}
-      <button 
-        className="remove-question-btn"
-        onClick={() => {
-          const updatedQuestions = survey.questions.filter((_, i) => i !== index);
-          if (editingSurvey) {
-            setEditingSurvey({ ...editingSurvey, questions: updatedQuestions });
-          } else {
-            setNewSurvey({ ...survey, questions: updatedQuestions });
-          }
-        }}
-      >
-        <FaTrash />
-      </button>
-    </div>
 
       {(question.type === 'multiple-choice' || question.type === 'checkbox' || question.type === 'dropdown') && (
         <div className="options-section">
@@ -802,47 +813,76 @@ const Survey = () => {
 
       {editingSurvey && (
         <div className="ai-assistance-section">
-          <button 
-            className="ai-help-btn"
-            onClick={() => setSelectedQuestionIndex(index)}
-          >
-            <FaRobot /> Get AI Help
-          </button>
-          
-          {selectedQuestionIndex === index && (
+          {showAiInput !== index ? (
+            <button 
+              className="ai-help-btn"
+              onClick={() => setShowAiInput(index)}
+            >
+              <FaRobot /> Get AI Help
+            </button>
+          ) : (
             <div className="ai-suggestions">
               <form onSubmit={handleAiQuery} className="ai-query-form">
                 <div className="query-input-wrapper">
-                  <FaRobot className="ai-icon" />
                   <input
                     type="text"
                     value={aiQuery}
                     onChange={(e) => setAiQuery(e.target.value)}
                     placeholder="Ask AI to help improve this question..."
                     className="query-input"
+                    autoFocus
                   />
                 </div>
-                <button 
-                  type="submit" 
-                  className="query-submit"
-                  disabled={loading || !aiQuery.trim()}
-                >
-                  {loading ? 'Analyzing...' : 'Get Suggestions'}
-                </button>
+                <div className="buttons-row">
+                  <button 
+                    type="submit" 
+                    className="query-submit"
+                    disabled={loading || !aiQuery.trim()}
+                  >
+                    {loading ? 'Analyzing...' : 'Get Suggestions'}
+                    {loading && <span className="loading-spinner"></span>}
+                  </button>
+                  <button 
+                    type="button"
+                    className="cancel-btn"
+                    onClick={() => {
+                      setShowAiInput(null);
+                      setAiQuery('');
+                      setAiSuggestions(null);
+                    }}
+                  >
+                    Cancel
+                  </button>
+                </div>
               </form>
 
-              {aiSuggestions && (
+              {aiSuggestions && aiSuggestions.questionIndex === index && (
                 <div className="suggestions-display">
-                  <h4>AI Suggestions</h4>
+                  <h4>
+                    <FaLightbulb style={{ color: '#fbbc05' }} />
+                    AI Suggestions
+                  </h4>
                   <div className="suggestions-list">
                     {aiSuggestions.suggestions.map((suggestion, idx) => (
                       <div key={idx} className="suggestion-item">
                         <FaLightbulb className="suggestion-icon" />
                         <div className="suggestion-content">
                           <p>{suggestion.text}</p>
+                          {suggestion.choices && suggestion.choices.length > 0 && (
+                            <ul className="suggestion-choices">
+                              {suggestion.choices.map((choice, choiceIdx) => (
+                                <li key={choiceIdx}>{choice}</li>
+                              ))}
+                            </ul>
+                          )}
                           <button 
                             className="apply-suggestion-btn"
-                            onClick={() => applySuggestion(suggestion)}
+                            onClick={() => {
+                              applySuggestion(suggestion);
+                              setShowAiInput(null);
+                              setAiSuggestions(null);
+                              setAiQuery('');
+                            }}
                           >
                             Apply Suggestion
                           </button>
