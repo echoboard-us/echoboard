@@ -23,7 +23,7 @@ const SurveyResponse = () => {
               question,
               type,
               choices,
-              order
+              question_order
             )
           `)
           .eq('id', surveyId)
@@ -32,8 +32,8 @@ const SurveyResponse = () => {
         if (error) throw error;
         if (!data) throw new Error('Survey not found');
 
-        // Sort questions by order
-        data.questions.sort((a, b) => a.order - b.order);
+        // Sort questions by question_order
+        data.questions.sort((a, b) => a.question_order - b.question_order);
         setSurvey(data);
 
         // Initialize responses object
