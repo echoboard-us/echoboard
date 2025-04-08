@@ -17,9 +17,10 @@
 }
 
 .sidebar-logo {
-  color: var(--primary-color);
-  margin: 0;
-  font-size: 1.5rem;
+  width: 200px;
+  height: auto;
+  display: block;
+  margin: 0 auto;
 }
 
 /* Navigation */
