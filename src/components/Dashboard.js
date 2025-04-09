@@ -2,10 +2,11 @@ import React, { useState } from 'react';
 import { 
   FaSearch, FaCalendar, FaDollarSign, FaBriefcase, 
   FaBell, FaCog, FaRobot, FaChevronDown, FaSyncAlt,
-  FaDownload, FaSave, FaTimes, FaGripVertical, FaUsers,
+  FaDownload, FaTimes, FaGripVertical, FaUsers,
   FaProjectDiagram, FaChartLine
 } from 'react-icons/fa';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import html2pdf from 'html2pdf.js';
 import './Dashboard.css';
 
 const Dashboard = () => {
@@ -121,6 +122,27 @@ const Dashboard = () => {
 
   const toggleAiPanel = () => {
     setAiSidePanelExpanded(!aiSidePanelExpanded);
+  };
+
+  const handleExportToPDF = () => {
+    const element = document.querySelector('.dashboard-container');
+    const opt = {
+      margin: 10,
+      filename: `${currentTeam.replace(/\s+/g, '_')}_Dashboard_${new Date().toISOString().split('T')[0]}.pdf`,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
+    };
+    
+    // Remove the AI side panel temporarily for the PDF export
+    const aiPanel = document.querySelector('.ai-side-panel');
+    const originalDisplay = aiPanel.style.display;
+    aiPanel.style.display = 'none';
+    
+    html2pdf().set(opt).from(element).save().then(() => {
+      // Restore the AI side panel after PDF generation
+      aiPanel.style.display = originalDisplay;
+    });
   };
 
   return (
@@ -490,11 +512,8 @@ const Dashboard = () => {
           <span>Last updated: {lastUpdated}</span>
         </div>
         <div className="footer-right">
-          <button className="footer-button">
-            <FaSave /> Save Dashboard
-          </button>
-          <button className="footer-button">
-            <FaDownload /> Export
+          <button className="footer-button" onClick={handleExportToPDF}>
+            <FaDownload /> Export as PDF
           </button>
         </div>
       </div>

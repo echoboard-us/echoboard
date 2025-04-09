@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient.js';
 import { useAuth } from '../context/AuthContext';
-import { FaUsers, FaClock, FaTrash, FaEdit, FaShare, FaRobot, FaLightbulb, FaChartBar, FaChevronDown, FaChevronUp, FaLink, FaCopy } from 'react-icons/fa';
+import { FaUsers, FaClock, FaTrash, FaEdit, FaShare, FaRobot, FaLightbulb, FaLink, FaCopy } from 'react-icons/fa';
 import './Survey.css';
 import './AiSuggestions.css';
 
@@ -35,8 +35,6 @@ const Survey = () => {
   const [aiQuery, setAiQuery] = useState('');
   const [aiSuggestions, setAiSuggestions] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [selectedSurveyInsights, setSelectedSurveyInsights] = useState(null);
-  const [showRawResponses, setShowRawResponses] = useState(false);
   const [viewingSurvey, setViewingSurvey] = useState(null);
   const [showShareModal, setShowShareModal] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
@@ -62,14 +60,6 @@ const Survey = () => {
             type,
             choices,
             question_order
-          ),
-          survey_insights:survey_insights(
-            id,
-            summary,
-            key_findings,
-            sentiment_analysis,
-            trends,
-            recommendations
           )
         `)
         .eq('creator_id', user.id)
@@ -423,49 +413,6 @@ const Survey = () => {
     }
   };
 
-  const handleShowInsights = async (survey) => {
-    setSelectedSurveyInsights(survey);
-    try {
-      // TODO: Replace with actual API call
-      // Simulating API delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Mock insights data
-      const mockInsights = {
-        summary: "Based on 50 responses, the overall sentiment is positive with 75% satisfaction rate.",
-        keyFindings: [
-          "Most respondents (80%) rated the service above 4 stars",
-          "Common feedback themes: ease of use, quick response times",
-          "Areas for improvement: mobile experience, documentation"
-        ],
-        sentimentAnalysis: {
-          positive: 75,
-          neutral: 15,
-          negative: 10
-        },
-        trends: [
-          "Increasing satisfaction over the past 3 months",
-          "Higher engagement from enterprise users",
-          "Growing demand for mobile features"
-        ],
-        recommendations: [
-          "Consider prioritizing mobile app development",
-          "Expand documentation with more examples",
-          "Add more enterprise-focused features"
-        ],
-        rawResponses: [
-          { question: "How satisfied are you?", response: "Very satisfied", respondent: "User 1" },
-          { question: "What features do you use most?", response: "Dashboard and analytics", respondent: "User 2" },
-          { question: "Areas for improvement?", response: "Mobile app needed", respondent: "User 3" }
-        ]
-      };
-      
-      setSelectedSurveyInsights({ ...survey, insights: mockInsights });
-    } catch (error) {
-      console.error('Error fetching insights:', error);
-    }
-  };
-
   const handleStatusChange = async (surveyId, newStatus) => {
     try {
       // First verify the user owns this survey
@@ -519,110 +466,6 @@ const Survey = () => {
       questions: prepareQuestionsForEdit(survey.questions)
     });
     setShowCreateForm(true);
-  };
-
-  const InsightsModal = ({ survey, onClose }) => {
-    if (!survey || !survey.insights) return null;
-    
-    return (
-      <div className="modal-overlay">
-        <div className="insights-modal">
-          <div className="modal-header">
-            <h2>{survey.title} - Insights</h2>
-            <button className="close-modal-btn" onClick={onClose}>×</button>
-          </div>
-          
-          <div className="modal-content">
-            <div className="insights-summary">
-              <h3>Summary</h3>
-              <p>{survey.insights.summary}</p>
-            </div>
-
-            <div className="insights-section">
-              <h3>Key Findings</h3>
-              <ul>
-                {survey.insights.keyFindings.map((finding, index) => (
-                  <li key={index}>{finding}</li>
-                ))}
-              </ul>
-            </div>
-
-            <div className="insights-section">
-              <h3>Sentiment Analysis</h3>
-              <div className="sentiment-bars">
-                {Object.entries(survey.insights.sentimentAnalysis).map(([type, value]) => (
-                  <div key={type} className="sentiment-bar">
-                    <span className="sentiment-label">{type}</span>
-                    <div className="sentiment-bar-container">
-                      <div 
-                        className={`sentiment-bar-fill ${type}`}
-                        style={{ width: `${value}%` }}
-                      >
-                        {value}%
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="insights-section">
-              <h3>Trends</h3>
-              <ul>
-                {survey.insights.trends.map((trend, index) => (
-                  <li key={index}>{trend}</li>
-                ))}
-              </ul>
-            </div>
-
-            <div className="insights-section">
-              <h3>Recommendations</h3>
-              <ul>
-                {survey.insights.recommendations.map((rec, index) => (
-                  <li key={index}>
-                    <FaLightbulb className="recommendation-icon" />
-                    {rec}
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            <div className="insights-section raw-responses">
-              <div 
-                className="raw-responses-header"
-                onClick={() => setShowRawResponses(!showRawResponses)}
-              >
-                <h3>Raw Responses</h3>
-                {showRawResponses ? <FaChevronUp /> : <FaChevronDown />}
-              </div>
-              
-              {showRawResponses && (
-                <div className="responses-table">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Question</th>
-                        <th>Response</th>
-                        <th>Respondent</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {survey.insights.rawResponses.map((response, index) => (
-                        <tr key={index}>
-                          <td>{response.question}</td>
-                          <td>{response.response}</td>
-                          <td>{response.respondent}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-    );
   };
 
   const ViewSurveyModal = ({ survey, onClose }) => {
@@ -1009,12 +852,6 @@ const Survey = () => {
                     <FaShare /> View & Share
                   </button>
                   <button 
-                    className="insights-btn"
-                    onClick={() => handleShowInsights(survey)}
-                  >
-                    <FaChartBar /> Insights
-                  </button>
-                  <button 
                     className="delete-survey-btn"
                     onClick={() => handleDeleteSurvey(survey.id)}
                   >
@@ -1026,13 +863,6 @@ const Survey = () => {
           </div>
         )}
       </div>
-
-      {selectedSurveyInsights && (
-        <InsightsModal 
-          survey={selectedSurveyInsights} 
-          onClose={() => setSelectedSurveyInsights(null)} 
-        />
-      )}
 
       {viewingSurvey && (
         <ViewSurveyModal

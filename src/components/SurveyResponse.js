@@ -91,6 +91,7 @@ const SurveyResponse = () => {
         .insert([{
           survey_id: surveyId,
           submitted_at: new Date().toISOString()
+          // source field removed as it doesn't exist in the schema
         }])
         .select()
         .single();
@@ -109,6 +110,23 @@ const SurveyResponse = () => {
         .insert(answersToInsert);
 
       if (answersError) throw answersError;
+
+      // Update respondent count in the survey
+      try {
+        const { error: updateError } = await supabase
+          .from('surveys')
+          .update({ 
+            respondents: survey.respondents ? survey.respondents + 1 : 1 
+          })
+          .eq('id', surveyId);
+          
+        if (updateError) {
+          console.error('Error updating respondent count:', updateError);
+        }
+      } catch (countError) {
+        // Don't fail the submission if count update fails
+        console.error('Error updating respondent count:', countError);
+      }
 
       setSubmitted(true);
     } catch (err) {

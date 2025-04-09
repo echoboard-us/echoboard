@@ -3,9 +3,8 @@ import { supabase } from '../supabaseClient';
 import { useAuth } from '../context/AuthContext';
 import { generateSurveyInsights } from '../services/openai';
 import { 
-  FaCheckCircle, FaComments, FaChartBar, FaUsers, 
-  FaChevronUp, FaChevronDown, FaExternalLinkAlt,
-  FaSpinner, FaTimes, FaRobot, FaBell
+  FaChartBar, FaChevronUp, FaChevronDown, 
+  FaExternalLinkAlt, FaTimes, FaRobot, FaBell
 } from "react-icons/fa";
 import "./Insights.css";
 
@@ -127,9 +126,9 @@ const InsightsModal = ({ survey, onClose }) => {
 
       const insightData = {
         summary: `Received ${responseRate} responses for "${survey.title}"`,
-      keyMetrics: [
+        keyMetrics: [
           { 
-            label: "Response Count", 
+            label: "Total Submissions", 
             value: responseRate.toString(),
             trend: "up"
           },
@@ -198,9 +197,11 @@ const InsightsModal = ({ survey, onClose }) => {
   if (loading) {
     return (
       <div className="insights-modal-overlay">
-        <div className="insights-modal" onClick={e => e.stopPropagation()}>
-          <div className="loading-spinner">
-            <FaSpinner className="spinning" /> Generating insights...
+        <div className="insights-modal loading-modal" onClick={e => e.stopPropagation()}>
+          <div className="loading-container">
+            <div className="loading-animation"></div>
+            <h3 className="loading-text">Generating Insights</h3>
+            <p className="loading-subtext">Analyzing survey responses and preparing your insights...</p>
           </div>
         </div>
       </div>
@@ -298,7 +299,7 @@ const InsightsModal = ({ survey, onClose }) => {
               <div className="ai-content">
                 {aiLoading ? (
                   <div className="loading-spinner">
-                    <FaSpinner className="spinning" /> Updating AI insights...
+                    <span className="loading-dot">•</span> Updating AI insights...
                   </div>
                 ) : (
                   <>
@@ -368,7 +369,7 @@ const Insights = () => {
     return (
       <div className="insights-container">
         <div className="loading-spinner">
-          <FaSpinner className="spinning" /> Loading surveys...
+          <span className="loading-dot">•</span> Loading surveys...
         </div>
       </div>
     );
