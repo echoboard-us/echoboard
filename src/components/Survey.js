@@ -25,7 +25,13 @@ const SURVEY_STATUS = {
 const Survey = () => {
   const { user } = useAuth(); // Get the current user
   const [surveys, setSurveys] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [selectedSurvey, setSelectedSurvey] = useState(null);
+  const [viewingSurvey, setViewingSurvey] = useState(null);
+  const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
   const [newSurvey, setNewSurvey] = useState({
     title: '',
     description: '',
@@ -34,8 +40,6 @@ const Survey = () => {
   const [editingSurvey, setEditingSurvey] = useState(null);
   const [aiQuery, setAiQuery] = useState('');
   const [aiSuggestions, setAiSuggestions] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [viewingSurvey, setViewingSurvey] = useState(null);
   const [showShareModal, setShowShareModal] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
   const [showAiInput, setShowAiInput] = useState(null); // Changed to null to track which question is being edited
@@ -234,34 +238,44 @@ const Survey = () => {
     }
   };
 
-  const handleDeleteSurvey = async (surveyId) => {
-    if (window.confirm('Are you sure you want to delete this survey? This action cannot be undone.')) {
-      try {
-        // First verify the user owns this survey
-        const { data: surveyData, error: fetchError } = await supabase
-          .from('surveys')
-          .select('creator_id')
-          .eq('id', surveyId)
-          .single();
+  const handleDeleteClick = (survey) => {
+    setSelectedSurvey(survey);
+    setShowDeleteConfirmModal(true);
+  };
 
-        if (fetchError) throw fetchError;
-        if (surveyData.creator_id !== user.id) {
-          throw new Error('You do not have permission to delete this survey');
-        }
+  const handleDeleteSurvey = async () => {
+    if (!selectedSurvey) return;
 
-        // Delete survey (cascade will handle related records)
-        const { error } = await supabase
-          .from('surveys')
-          .delete()
-          .eq('id', surveyId)
-          .eq('creator_id', user.id); // Additional check to ensure ownership
+    try {
+      setLoading(true);
+      // First verify the user owns this survey
+      const { data: surveyData, error: fetchError } = await supabase
+        .from('surveys')
+        .select('creator_id')
+        .eq('id', selectedSurvey.id)
+        .single();
 
-        if (error) throw error;
-        fetchSurveys(); // Refresh the surveys list
-      } catch (error) {
-        console.error('Error deleting survey:', error);
-        alert('Failed to delete survey: ' + error.message);
+      if (fetchError) throw fetchError;
+      if (surveyData.creator_id !== user.id) {
+        throw new Error('You do not have permission to delete this survey');
       }
+
+      // Delete survey (cascade will handle related records)
+      const { error } = await supabase
+        .from('surveys')
+        .delete()
+        .eq('id', selectedSurvey.id)
+        .eq('creator_id', user.id); // Additional check to ensure ownership
+
+      if (error) throw error;
+      fetchSurveys(); // Refresh the surveys list
+      setShowDeleteConfirmModal(false);
+      setSelectedSurvey(null);
+    } catch (error) {
+      console.error('Error deleting survey:', error);
+      setError('Failed to delete survey: ' + error.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -853,7 +867,7 @@ const Survey = () => {
                   </button>
                   <button 
                     className="delete-survey-btn"
-                    onClick={() => handleDeleteSurvey(survey.id)}
+                    onClick={() => handleDeleteClick(survey)}
                   >
                     <FaTrash /> Delete
                   </button>
@@ -873,6 +887,42 @@ const Survey = () => {
             setCopySuccess(false);
           }}
         />
+      )}
+
+      {/* Delete Survey Confirmation Modal */}
+      {showDeleteConfirmModal && selectedSurvey && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <h3>Delete Survey</h3>
+            <p className="delete-confirmation-message">
+              Are you sure you want to delete the survey "
+              {selectedSurvey.title || "Unnamed Survey"}"? This action cannot be
+              undone.
+            </p>
+            <p className="delete-warning">
+              This will permanently delete all survey data and responses.
+            </p>
+            <div className="modal-actions">
+              <button
+                className="delete-confirm-btn"
+                onClick={handleDeleteSurvey}
+                disabled={loading}
+              >
+                {loading ? "Deleting..." : "Delete Survey"}
+              </button>
+              <button
+                className="cancel-btn"
+                onClick={() => {
+                  setShowDeleteConfirmModal(false);
+                  setSelectedSurvey(null);
+                }}
+                disabled={loading}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
