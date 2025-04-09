@@ -638,7 +638,7 @@ const Teams = () => {
       {/* Create Team Modal */}
       {showCreateModal && (
         <div className="modal-overlay">
-          <div className="modal-content">
+          <div className="create-team-modal">
             <h3>Create New Team</h3>
             {error && <div className="error-message">{error}</div>}
             <form onSubmit={handleCreateTeam}>
@@ -701,7 +701,7 @@ const Teams = () => {
       {/* Delete Team Confirmation Modal */}
       {showDeleteConfirmModal && selectedTeam && (
         <div className="modal-overlay">
-          <div className="modal-content">
+          <div className="delete-modal-content">
             <h3>Delete Team</h3>
             <p className="delete-confirmation-message">
               Are you sure you want to delete the team "

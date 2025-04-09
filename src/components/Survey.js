@@ -892,7 +892,7 @@ const Survey = () => {
       {/* Delete Survey Confirmation Modal */}
       {showDeleteConfirmModal && selectedSurvey && (
         <div className="modal-overlay">
-          <div className="modal-content">
+          <div className="delete-modal-content">
             <h3>Delete Survey</h3>
             <p className="delete-confirmation-message">
               Are you sure you want to delete the survey "

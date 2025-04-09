@@ -1318,3 +1318,45 @@ select.status option {
   font-size: 1rem;
   width: 100%;
 }
+
+/* Delete Confirmation Modal */
+.delete-modal-content {
+  background-color: white;
+  padding: 1.5rem;
+  border-radius: 12px;
+  width: auto;
+  max-width: 450px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  text-align: center;
+}
+
+.delete-modal-content h3 {
+  color: #384959;
+  margin: 0 0 1rem 0;
+  font-size: 1.5rem;
+}
+
+.delete-confirmation-message {
+  margin-bottom: 1rem;
+  color: #384959;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.delete-warning {
+  color: #e53e3e;
+  margin-bottom: 1.5rem;
+  font-weight: 500;
+  font-size: 0.9rem;
+}
+
+.delete-modal-content .modal-actions {
+  justify-content: center;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}

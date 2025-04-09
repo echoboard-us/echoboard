@@ -559,7 +559,16 @@
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
-.modal-content h3 {
+.create-team-modal {
+  background-color: var(--bg-primary);
+  padding: 2rem;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 500px !important;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.modal-content h3, .create-team-modal h3 {
   margin: 0 0 1.5rem 0;
   color: var(--text-primary);
 }
