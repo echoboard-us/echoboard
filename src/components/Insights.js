@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../context/AuthContext';
 import { generateSurveyInsights } from '../services/openai';
@@ -9,82 +9,19 @@ import {
 import "./Insights.css";
 
 const InsightsModal = ({ survey, onClose }) => {
-  const [activeSection, setActiveSection] = useState('all');
   const [loading, setLoading] = useState(true);
   const [insights, setInsights] = useState(null);
   const [aiAnalysis, setAiAnalysis] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
-  const [responses, setResponses] = useState([]);
+  const [responseData, setResponseData] = useState([]);
   const [newResponseAlert, setNewResponseAlert] = useState(false);
   
-  useEffect(() => {
-    const fetchResponses = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('responses')
-          .select(`
-            *,
-            answers (
-              question_id,
-              answer
-            )
-          `)
-          .eq('survey_id', survey.id);
-
-        if (error) throw error;
-        setResponses(data);
-        await processInsights(data);
-      } catch (error) {
-        console.error('Error fetching responses:', error);
-      }
-    };
-
-    fetchResponses();
-
-    // Set up real-time subscription
-    const subscription = supabase
-      .channel('responses-channel')
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'responses',
-        filter: `survey_id=eq.${survey.id}`
-      }, async (payload) => {
-        // Fetch the complete response with answers
-        const { data: newResponse, error } = await supabase
-          .from('responses')
-          .select(`
-            *,
-            answers (
-              question_id,
-              answer
-            )
-          `)
-          .eq('id', payload.new.id)
-          .single();
-
-        if (!error) {
-          setNewResponseAlert(true);
-          setResponses(prev => [...prev, newResponse]);
-          // Update insights with new response
-          await processInsights([...responses, newResponse]);
-        }
-      })
-      .subscribe();
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, [survey.id]);
-
-  const processInsights = async (responseData) => {
+  const processInsights = useCallback(async (responseData) => {
     try {
       setLoading(true);
       
-      // Calculate response rate and metrics
       const responseRate = responseData.length;
       
-      // Process answers
       const answersByQuestion = {};
       responseData.forEach(response => {
         response.answers.forEach(answer => {
@@ -95,7 +32,6 @@ const InsightsModal = ({ survey, onClose }) => {
         });
       });
 
-      // Calculate metrics for each question
       const questionMetrics = {};
       Object.entries(answersByQuestion).forEach(([questionId, answers]) => {
         const question = survey.questions.find(q => q.id === parseInt(questionId));
@@ -125,7 +61,6 @@ const InsightsModal = ({ survey, onClose }) => {
       });
 
       const insightData = {
-        summary: `Received ${responseRate} responses for "${survey.title}"`,
         keyMetrics: [
           { 
             label: "Total Submissions", 
@@ -155,7 +90,6 @@ const InsightsModal = ({ survey, onClose }) => {
 
       setInsights(insightData);
       
-      // Generate AI insights if we have responses
       if (responseData.length > 0) {
         setAiLoading(true);
         try {
@@ -173,7 +107,67 @@ const InsightsModal = ({ survey, onClose }) => {
       console.error('Error processing insights:', error);
       setLoading(false);
     }
-  };
+  }, [survey]);
+
+  useEffect(() => {
+    const fetchResponses = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('responses')
+          .select(`
+            *,
+            answers (
+              question_id,
+              answer
+            )
+          `)
+          .eq('survey_id', survey.id);
+
+        if (error) throw error;
+        setResponseData(data);
+        await processInsights(data);
+      } catch (error) {
+        console.error('Error fetching responses:', error);
+      }
+    };
+
+    fetchResponses();
+
+    const subscription = supabase
+      .channel('responses-channel')
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'responses',
+        filter: `survey_id=eq.${survey.id}`
+      }, async (payload) => {
+        const { data: newResponse, error } = await supabase
+          .from('responses')
+          .select(`
+            *,
+            answers (
+              question_id,
+              answer
+            )
+          `)
+          .eq('id', payload.new.id)
+          .single();
+
+        if (!error) {
+          setNewResponseAlert(true);
+          setResponseData(prev => {
+            const updatedResponses = [...prev, newResponse];
+            processInsights(updatedResponses);
+            return updatedResponses;
+          });
+        }
+      })
+      .subscribe();
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [survey.id, processInsights]);
 
   const calculateDistribution = (numbers) => {
     const distribution = {};
@@ -211,10 +205,6 @@ const InsightsModal = ({ survey, onClose }) => {
   return (
     <div className="insights-modal-overlay" onClick={onClose}>
       <div className="insights-modal" onClick={e => e.stopPropagation()}>
-        <button className="close-button" onClick={onClose}>
-            <FaTimes />
-          </button>
-        
         <div className="modal-header">
           <h2>{survey.title} - Insights</h2>
           {newResponseAlert && (
@@ -222,36 +212,61 @@ const InsightsModal = ({ survey, onClose }) => {
               <FaBell /> New responses received! Analysis updated.
             </div>
           )}
-          <p className="summary">{insights.summary}</p>
+          <button className="close-button" onClick={onClose}>
+            <FaTimes />
+          </button>
         </div>
 
         <div className="modal-content">
-          <div className="key-metrics">
-            {insights.keyMetrics.map((metric, index) => (
-              <div key={index} className="metric-card">
-                <h3>{metric.label}</h3>
-                <p className="metric-value">
-                  {metric.value}
-                  {metric.trend === 'up' && <FaChevronUp className="trend up" />}
-                  {metric.trend === 'down' && <FaChevronDown className="trend down" />}
-                  {metric.trend === 'stable' && <FaExternalLinkAlt className="trend stable" />}
-                </p>
-              </div>
-            ))}
-          </div>
+          <div className="insights-container-box">
+            <div className="key-metrics">
+              {insights.keyMetrics.map((metric, index) => (
+                <div key={index} className="metric-card">
+                  <h3>{metric.label}</h3>
+                  <p className="metric-value">
+                    {metric.value}
+                    {metric.trend === 'up' && <FaChevronUp className="trend up" />}
+                    {metric.trend === 'down' && <FaChevronDown className="trend down" />}
+                    {metric.trend === 'stable' && <FaExternalLinkAlt className="trend stable" />}
+                  </p>
+                </div>
+              ))}
+            </div>
 
-          <div className="question-insights">
-            <h3>Question Analysis</h3>
-            {insights.questionInsights.map((qi, index) => (
-              <div key={index} className="question-insight-card">
-                <h4>{qi.question}</h4>
-                {qi.type === 'rating' && (
-                  <div className="metric-value">
-                    Average Rating: {qi.metrics.average}
-                    <div className="distribution-chart">
-                      {Object.entries(qi.metrics.distribution).map(([rating, count], i) => (
+            <div className="question-insights">
+              <h3>Question Analysis</h3>
+              {insights.questionInsights.map((qi, index) => (
+                <div key={index} className="question-insight-card">
+                  <h4>{qi.question}</h4>
+                  {qi.type === 'rating' && (
+                    <div className="metric-value">
+                      Average Rating: {qi.metrics.average}
+                      <div className="distribution-chart">
+                        {Object.entries(qi.metrics.distribution).map(([rating, count], i) => (
+                          <div key={i} className="distribution-bar">
+                            <span className="rating-label">{rating}</span>
+                            <div className="bar-container">
+                              <div 
+                                className="bar" 
+                                style={{ 
+                                  width: `${(count / qi.metrics.responses) * 100}%` 
+                                }} 
+                              />
+                              <span className="count">{count}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="response-count">
+                        {qi.metrics.responses} responses
+                      </div>
+                    </div>
+                  )}
+                  {['multiple_choice', 'checkbox', 'dropdown'].includes(qi.type) && (
+                    <div className="distribution">
+                      {Object.entries(qi.metrics.distribution).map(([option, count], i) => (
                         <div key={i} className="distribution-bar">
-                          <span className="rating-label">{rating}</span>
+                          <span className="option-label">{option}:</span>
                           <div className="bar-container">
                             <div 
                               className="bar" 
@@ -264,63 +279,135 @@ const InsightsModal = ({ survey, onClose }) => {
                         </div>
                       ))}
                     </div>
-                    <div className="response-count">
-                      {qi.metrics.responses} responses
-                    </div>
-                  </div>
-                )}
-                {['multiple_choice', 'checkbox', 'dropdown'].includes(qi.type) && (
-                  <div className="distribution">
-                    {Object.entries(qi.metrics.distribution).map(([option, count], i) => (
-                      <div key={i} className="distribution-bar">
-                        <span className="option-label">{option}:</span>
-                        <div className="bar-container">
-                          <div 
-                            className="bar" 
-                            style={{ 
-                              width: `${(count / qi.metrics.responses) * 100}%` 
-                            }} 
-                          />
-                          <span className="count">{count}</span>
-                        </div>
+                  )}
                 </div>
               ))}
             </div>
-                )}
-              </div>
-            ))}
-          </div>
 
-          {aiAnalysis && (
-            <div className="ai-insights">
-              <h3>
-                <FaRobot className="ai-icon" /> AI-Generated Insights
-              </h3>
-              <div className="ai-content">
-                {aiLoading ? (
-                  <div className="loading-spinner">
-                    <span className="loading-dot">•</span> Updating AI insights...
-                  </div>
-                ) : (
-                  <>
-                    <div className="ai-summary">
-                      {aiAnalysis.structured_analysis.summary}
+            {aiAnalysis && (
+              <div className="ai-insights">
+                <h3>
+                  <FaRobot className="ai-icon" /> AI-Generated Insights
+                </h3>
+                <div className="ai-content">
+                  {aiLoading ? (
+                    <div className="loading-spinner">
+                      <span className="loading-dot">•</span> Updating AI insights...
                     </div>
-                    {aiAnalysis.structured_analysis.sections.map((section, index) => (
-                      <div key={index} className="ai-section">
-                        <h4>{section.title}</h4>
-                        <ul>
-                          {section.content.map((item, i) => (
-                            <li key={i}>{item}</li>
-              ))}
-            </ul>
-          </div>
-                    ))}
-                  </>
-                )}
+                  ) : (
+                    <>
+                      {/* Key Findings Section */}
+                      <div className="ai-section">
+                        <h4>Key Findings</h4>
+                        <div className="findings-list">
+                          {aiAnalysis.structured_analysis.key_findings?.map((finding, index) => (
+                            <div key={index} className="finding-item">
+                              <h5>{finding.title}</h5>
+                              <p>{finding.description}</p>
+                              {finding.supporting_stats && finding.supporting_stats.length > 0 && (
+                                <ul className="supporting-stats">
+                                  {finding.supporting_stats.map((stat, i) => (
+                                    <li key={i}>{stat}</li>
+                                  ))}
+                                </ul>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Sentiment Summary Section */}
+                      <div className="ai-section">
+                        <h4>Sentiment Analysis</h4>
+                        <div className="sentiment-summary">
+                          <div className="overall-sentiment">
+                            <p>Overall: <span className={`sentiment ${aiAnalysis.structured_analysis.sentiment_summary?.overall}`}>
+                              {aiAnalysis.structured_analysis.sentiment_summary?.overall || 'N/A'}
+                            </span></p>
+                          </div>
+                          {aiAnalysis.structured_analysis.sentiment_summary?.by_question && (
+                            <div className="sentiment-by-question">
+                              <h5>By Question:</h5>
+                              <ul>
+                                {aiAnalysis.structured_analysis.sentiment_summary.by_question.map((item, i) => {
+                                  const question = survey.questions.find(q => q.id === parseInt(item.question_id));
+                                  return (
+                                    <li key={i}>
+                                      <span className="question-text">{question ? question.question : `Question ${item.question_id}`}: </span>
+                                      <span className={`sentiment ${item.sentiment}`}>{item.sentiment}</span>
+                                      {item.score && <span className="score"> ({item.score.toFixed(1)})</span>}
+                                    </li>
+                                  );
+                                })}
+                              </ul>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Patterns and Trends Section */}
+                      <div className="ai-section">
+                        <h4>Patterns & Trends</h4>
+                        <div className="patterns-list">
+                          {aiAnalysis.structured_analysis.patterns_and_trends?.map((pattern, index) => (
+                            <div key={index} className="pattern-item">
+                              <h5>{pattern.pattern}</h5>
+                              <p>{pattern.details}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Statistical Highlights Section */}
+                      <div className="ai-section">
+                        <h4>Statistical Highlights</h4>
+                        <div className="stats-list">
+                          {aiAnalysis.structured_analysis.statistical_highlights?.map((stat, index) => (
+                            <div key={index} className="stat-item">
+                              <span className="stat-metric">{stat.metric}: </span>
+                              <span className="stat-value">{stat.value}</span>
+                              <p className="stat-context">{stat.context}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Areas for Attention Section */}
+                      <div className="ai-section">
+                        <h4>Areas Needing Attention</h4>
+                        <div className="attention-list">
+                          {aiAnalysis.structured_analysis.areas_for_attention?.map((area, index) => {
+                            const question = survey.questions.find(q => q.id === parseInt(area.question_id));
+                            return (
+                              <div key={index} className={`attention-item severity-${area.severity}`}>
+                                <h5>{question ? question.question : `Question ${area.question_id}`}</h5>
+                                <p>{area.issue}</p>
+                                <span className="severity-badge">{area.severity}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Recommendations Section */}
+                      <div className="ai-section">
+                        <h4>Recommendations</h4>
+                        <div className="recommendations-list">
+                          {aiAnalysis.structured_analysis.recommendations?.map((rec, index) => (
+                            <div key={index} className={`recommendation-item priority-${rec.priority}`}>
+                              <h5>{rec.action}</h5>
+                              <p>{rec.rationale}</p>
+                              <span className="priority-badge">{rec.priority} priority</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
+            )}
           </div>
-          )}
         </div>
       </div>
     </div>
