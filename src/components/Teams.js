@@ -567,14 +567,13 @@ const Teams = () => {
                   <p className="notification-team-desc">
                     {invite.teams?.description || "No description provided"}
                   </p>
-                  <p className="notification-team-id">
-                    Team ID: {invite.team_id}
-                  </p>
                 </div>
                 <div className="notification-actions">
                   <button
                     className="notification-accept-btn"
-                    onClick={() => handleDebugAccept(invite.id, invite.team_id)}
+                    onClick={() =>
+                      handleAcceptInvite(invite.id, invite.team_id)
+                    }
                     title="Accept"
                   >
                     <FaCheck />
@@ -592,90 +591,6 @@ const Teams = () => {
           </div>
         </div>
       )}
-
-      {/* Debug Information - Remove in production */}
-      <div className="debug-info">
-        <p>User ID: {user?.id}</p>
-        <p>User Email: {user?.email}</p>
-        <p>Pending Invites Count: {pendingInvites?.length || 0}</p>
-        <details>
-          <summary>View Team Invitations</summary>
-          <div>
-            <div style={{ marginBottom: "15px" }}>
-              <button
-                onClick={cleanupInvalidInvitations}
-                style={{
-                  padding: "5px 10px",
-                  backgroundColor: "#FF9800",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "4px",
-                  cursor: "pointer",
-                  marginTop: "10px",
-                }}
-              >
-                Cleanup Invalid Invitations
-              </button>
-            </div>
-            {pendingInvites?.length > 0 ? (
-              pendingInvites?.map((invite, index) => (
-                <div
-                  key={index}
-                  style={{
-                    marginBottom: "10px",
-                    borderBottom: "1px solid #eee",
-                    paddingBottom: "10px",
-                  }}
-                >
-                  <p>Invite ID: {invite.id}</p>
-                  <p>Team ID: {invite.team_id}</p>
-                  <p>Team Name: {invite.teams?.name || "undefined"}</p>
-                  <p>Team Description: {invite.teams?.description || "none"}</p>
-                  <p>Invited By: {invite.profiles?.email || "unknown"}</p>
-                  <p>Status: {invite.status}</p>
-                  <p>Created: {new Date(invite.created_at).toLocaleString()}</p>
-                  <div style={{ display: "flex", gap: "10px" }}>
-                    <button
-                      onClick={() =>
-                        handleDebugAccept(invite.id, invite.team_id)
-                      }
-                      style={{
-                        padding: "5px 10px",
-                        backgroundColor: "green",
-                        color: "white",
-                        border: "none",
-                        borderRadius: "4px",
-                        cursor: "pointer",
-                      }}
-                    >
-                      Debug Accept
-                    </button>
-                    <button
-                      onClick={() => checkTeamExists(invite.team_id)}
-                      style={{
-                        padding: "5px 10px",
-                        backgroundColor: "blue",
-                        color: "white",
-                        border: "none",
-                        borderRadius: "4px",
-                        cursor: "pointer",
-                      }}
-                    >
-                      Check Team
-                    </button>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <p>No pending invitations found</p>
-            )}
-          </div>
-        </details>
-        <details>
-          <summary>View Raw Invites Data</summary>
-          <pre>{JSON.stringify(pendingInvites, null, 2)}</pre>
-        </details>
-      </div>
 
       {/* Teams List */}
       <div className="teams-list">
