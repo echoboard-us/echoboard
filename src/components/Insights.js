@@ -3,8 +3,8 @@ import { supabase } from '../supabaseClient';
 import { useAuth } from '../context/AuthContext';
 import { generateSurveyInsights } from '../services/openai';
 import { 
-  FaChartBar, FaChevronUp, FaChevronDown, 
-  FaExternalLinkAlt, FaTimes, FaRobot, FaBell
+  FaRobot, FaBell, FaTimes, FaChartBar, 
+  FaChevronDown, FaChevronRight, FaDatabase
 } from "react-icons/fa";
 import "./Insights.css";
 
@@ -67,16 +67,16 @@ const InsightsModal = ({ survey, onClose }) => {
             value: responseRate.toString(),
             trend: "up"
           },
-          { 
+          ...(responseRate > 0 ? [{
             label: "Completion Rate", 
             value: `${((responseData.filter(r => r.completed).length / responseRate) * 100).toFixed(0)}%`,
             trend: "stable"
-          },
-          {
+          }] : []),
+          ...(calculateAverageTime(responseData) !== "N/A" ? [{
             label: "Average Time",
             value: calculateAverageTime(responseData),
             trend: "neutral"
-          }
+          }] : [])
         ],
         questionInsights: Object.entries(questionMetrics).map(([questionId, metrics]) => {
           const question = survey.questions.find(q => q.id === parseInt(questionId));
@@ -219,71 +219,6 @@ const InsightsModal = ({ survey, onClose }) => {
 
         <div className="modal-content">
           <div className="insights-container-box">
-            <div className="key-metrics">
-              {insights.keyMetrics.map((metric, index) => (
-                <div key={index} className="metric-card">
-                  <h3>{metric.label}</h3>
-                  <p className="metric-value">
-                    {metric.value}
-                    {metric.trend === 'up' && <FaChevronUp className="trend up" />}
-                    {metric.trend === 'down' && <FaChevronDown className="trend down" />}
-                    {metric.trend === 'stable' && <FaExternalLinkAlt className="trend stable" />}
-                  </p>
-                </div>
-              ))}
-            </div>
-
-            <div className="question-insights">
-              <h3>Question Analysis</h3>
-              {insights.questionInsights.map((qi, index) => (
-                <div key={index} className="question-insight-card">
-                  <h4>{qi.question}</h4>
-                  {qi.type === 'rating' && (
-                    <div className="metric-value">
-                      Average Rating: {qi.metrics.average}
-                      <div className="distribution-chart">
-                        {Object.entries(qi.metrics.distribution).map(([rating, count], i) => (
-                          <div key={i} className="distribution-bar">
-                            <span className="rating-label">{rating}</span>
-                            <div className="bar-container">
-                              <div 
-                                className="bar" 
-                                style={{ 
-                                  width: `${(count / qi.metrics.responses) * 100}%` 
-                                }} 
-                              />
-                              <span className="count">{count}</span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                      <div className="response-count">
-                        {qi.metrics.responses} responses
-                      </div>
-                    </div>
-                  )}
-                  {['multiple_choice', 'checkbox', 'dropdown'].includes(qi.type) && (
-                    <div className="distribution">
-                      {Object.entries(qi.metrics.distribution).map(([option, count], i) => (
-                        <div key={i} className="distribution-bar">
-                          <span className="option-label">{option}:</span>
-                          <div className="bar-container">
-                            <div 
-                              className="bar" 
-                              style={{ 
-                                width: `${(count / qi.metrics.responses) * 100}%` 
-                              }} 
-                            />
-                            <span className="count">{count}</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-
             {aiAnalysis && (
               <div className="ai-insights">
                 <h3>
@@ -300,19 +235,70 @@ const InsightsModal = ({ survey, onClose }) => {
                       <div className="ai-section">
                         <h4>Key Findings</h4>
                         <div className="findings-list">
-                          {aiAnalysis.structured_analysis.key_findings?.map((finding, index) => (
-                            <div key={index} className="finding-item">
-                              <h5>{finding.title}</h5>
-                              <p>{finding.description}</p>
-                              {finding.supporting_stats && finding.supporting_stats.length > 0 && (
-                                <ul className="supporting-stats">
-                                  {finding.supporting_stats.map((stat, i) => (
-                                    <li key={i}>{stat}</li>
-                                  ))}
-                                </ul>
-                              )}
-                            </div>
-                          ))}
+                          {aiAnalysis.structured_analysis.key_findings?.map((finding, index) => {
+                            // Replace any question IDs in the title and description
+                            let titleText = finding.title;
+                            let descriptionText = finding.description;
+                            
+                            survey.questions.forEach(q => {
+                              const idStr = `Question ${q.id}`;
+                              const uuidPattern = new RegExp(`Question [a-f0-9-]{36}`, 'g');
+                              
+                              if (titleText) {
+                                titleText = titleText.replace(new RegExp(idStr, 'g'), `"${q.question}"`);
+                                titleText = titleText.replace(uuidPattern, (match) => {
+                                  // Try to extract the UUID
+                                  const uuid = match.replace('Question ', '');
+                                  const matchedQuestion = survey.questions.find(q => q.id === uuid);
+                                  return matchedQuestion ? `"${matchedQuestion.question}"` : match;
+                                });
+                              }
+                              
+                              if (descriptionText) {
+                                descriptionText = descriptionText.replace(new RegExp(idStr, 'g'), `"${q.question}"`);
+                                descriptionText = descriptionText.replace(uuidPattern, (match) => {
+                                  // Try to extract the UUID
+                                  const uuid = match.replace('Question ', '');
+                                  const matchedQuestion = survey.questions.find(q => q.id === uuid);
+                                  return matchedQuestion ? `"${matchedQuestion.question}"` : match;
+                                });
+                              }
+                            });
+                            
+                            // Also process supporting stats
+                            const processedStats = finding.supporting_stats?.map(stat => {
+                              let statText = stat;
+                              survey.questions.forEach(q => {
+                                const idStr = `Question ${q.id}`;
+                                if (statText) {
+                                  statText = statText.replace(new RegExp(idStr, 'g'), `"${q.question}"`);
+                                }
+                              });
+                              
+                              // Also try to match UUID pattern
+                              const uuidPattern = new RegExp(`Question [a-f0-9-]{36}`, 'g');
+                              statText = statText.replace(uuidPattern, (match) => {
+                                const uuid = match.replace('Question ', '');
+                                const matchedQuestion = survey.questions.find(q => q.id === uuid);
+                                return matchedQuestion ? `"${matchedQuestion.question}"` : match;
+                              });
+                              return statText;
+                            });
+                            
+                            return (
+                              <div key={index} className="finding-item">
+                                <h5>{titleText}</h5>
+                                <p>{descriptionText}</p>
+                                {processedStats && processedStats.length > 0 && (
+                                  <ul className="supporting-stats">
+                                    {processedStats.map((stat, i) => (
+                                      <li key={i}>{stat}</li>
+                                    ))}
+                                  </ul>
+                                )}
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
 
@@ -330,7 +316,13 @@ const InsightsModal = ({ survey, onClose }) => {
                               <h5>By Question:</h5>
                               <ul>
                                 {aiAnalysis.structured_analysis.sentiment_summary.by_question.map((item, i) => {
-                                  const question = survey.questions.find(q => q.id === parseInt(item.question_id));
+                                  // Try both integer parsing and direct matching for UUID-style IDs
+                                  const question = survey.questions.find(q => 
+                                    q.id === parseInt(item.question_id) || 
+                                    q.id === item.question_id ||
+                                    q.id.toString() === item.question_id
+                                  );
+                                  
                                   return (
                                     <li key={i}>
                                       <span className="question-text">{question ? question.question : `Question ${item.question_id}`}: </span>
@@ -349,12 +341,53 @@ const InsightsModal = ({ survey, onClose }) => {
                       <div className="ai-section">
                         <h4>Patterns & Trends</h4>
                         <div className="patterns-list">
-                          {aiAnalysis.structured_analysis.patterns_and_trends?.map((pattern, index) => (
-                            <div key={index} className="pattern-item">
-                              <h5>{pattern.pattern}</h5>
-                              <p>{pattern.details}</p>
-                            </div>
-                          ))}
+                          {aiAnalysis.structured_analysis.patterns_and_trends?.map((pattern, index) => {
+                            // If the pattern contains a question_id, find the actual question text
+                            let patternText = pattern.pattern;
+                            let detailsText = pattern.details;
+                            
+                            // Handle UUID-style question IDs
+                            const uuidPattern = new RegExp(`Question [a-f0-9-]{36}`, 'g');
+                            
+                            if (patternText) {
+                              survey.questions.forEach(q => {
+                                const idStr = `Question ${q.id}`;
+                                if (patternText.includes(idStr)) {
+                                  patternText = patternText.replace(new RegExp(idStr, 'g'), `"${q.question}"`);
+                                }
+                              });
+                              
+                              // Also try to match UUID pattern
+                              patternText = patternText.replace(uuidPattern, (match) => {
+                                const uuid = match.replace('Question ', '');
+                                const matchedQuestion = survey.questions.find(q => q.id === uuid);
+                                return matchedQuestion ? `"${matchedQuestion.question}"` : match;
+                              });
+                            }
+                            
+                            if (detailsText) {
+                              survey.questions.forEach(q => {
+                                const idStr = `Question ${q.id}`;
+                                if (detailsText.includes(idStr)) {
+                                  detailsText = detailsText.replace(new RegExp(idStr, 'g'), `"${q.question}"`);
+                                }
+                              });
+                              
+                              // Also try to match UUID pattern
+                              detailsText = detailsText.replace(uuidPattern, (match) => {
+                                const uuid = match.replace('Question ', '');
+                                const matchedQuestion = survey.questions.find(q => q.id === uuid);
+                                return matchedQuestion ? `"${matchedQuestion.question}"` : match;
+                              });
+                            }
+                            
+                            return (
+                              <div key={index} className="pattern-item">
+                                <h5>{patternText}</h5>
+                                <p>{detailsText}</p>
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
 
@@ -362,13 +395,54 @@ const InsightsModal = ({ survey, onClose }) => {
                       <div className="ai-section">
                         <h4>Statistical Highlights</h4>
                         <div className="stats-list">
-                          {aiAnalysis.structured_analysis.statistical_highlights?.map((stat, index) => (
-                            <div key={index} className="stat-item">
-                              <span className="stat-metric">{stat.metric}: </span>
-                              <span className="stat-value">{stat.value}</span>
-                              <p className="stat-context">{stat.context}</p>
-                            </div>
-                          ))}
+                          {aiAnalysis.structured_analysis.statistical_highlights?.map((stat, index) => {
+                            // Replace any question IDs in the metric or context
+                            let metricText = stat.metric;
+                            let contextText = stat.context;
+                            
+                            // Handle UUID-style question IDs
+                            const uuidPattern = new RegExp(`Question [a-f0-9-]{36}`, 'g');
+                            
+                            if (metricText) {
+                              survey.questions.forEach(q => {
+                                const idStr = `Question ${q.id}`;
+                                if (metricText.includes(idStr)) {
+                                  metricText = metricText.replace(new RegExp(idStr, 'g'), `"${q.question}"`);
+                                }
+                              });
+                              
+                              // Also try to match UUID pattern
+                              metricText = metricText.replace(uuidPattern, (match) => {
+                                const uuid = match.replace('Question ', '');
+                                const matchedQuestion = survey.questions.find(q => q.id === uuid);
+                                return matchedQuestion ? `"${matchedQuestion.question}"` : match;
+                              });
+                            }
+                            
+                            if (contextText) {
+                              survey.questions.forEach(q => {
+                                const idStr = `Question ${q.id}`;
+                                if (contextText.includes(idStr)) {
+                                  contextText = contextText.replace(new RegExp(idStr, 'g'), `"${q.question}"`);
+                                }
+                              });
+                              
+                              // Also try to match UUID pattern
+                              contextText = contextText.replace(uuidPattern, (match) => {
+                                const uuid = match.replace('Question ', '');
+                                const matchedQuestion = survey.questions.find(q => q.id === uuid);
+                                return matchedQuestion ? `"${matchedQuestion.question}"` : match;
+                              });
+                            }
+                            
+                            return (
+                              <div key={index} className="stat-item">
+                                <span className="stat-metric">{metricText}: </span>
+                                <span className="stat-value">{stat.value}</span>
+                                <p className="stat-context">{contextText}</p>
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
 
@@ -377,11 +451,48 @@ const InsightsModal = ({ survey, onClose }) => {
                         <h4>Areas Needing Attention</h4>
                         <div className="attention-list">
                           {aiAnalysis.structured_analysis.areas_for_attention?.map((area, index) => {
-                            const question = survey.questions.find(q => q.id === parseInt(area.question_id));
+                            // Try to find the question using various ID formats
+                            const question = survey.questions.find(q => 
+                              q.id === parseInt(area.question_id) || 
+                              q.id === area.question_id ||
+                              q.id.toString() === area.question_id
+                            );
+                            
+                            // Also check if the issue text contains question IDs and replace them
+                            let issueText = area.issue;
+                            
+                            // Handle UUID-style question IDs
+                            const uuidPattern = new RegExp(`Question [a-f0-9-]{36}`, 'g');
+                            
+                            if (issueText) {
+                              survey.questions.forEach(q => {
+                                const idStr = `Question ${q.id}`;
+                                if (issueText.includes(idStr)) {
+                                  issueText = issueText.replace(new RegExp(idStr, 'g'), `"${q.question}"`);
+                                }
+                              });
+                              
+                              // Also try to match UUID pattern
+                              issueText = issueText.replace(uuidPattern, (match) => {
+                                const uuid = match.replace('Question ', '');
+                                const matchedQuestion = survey.questions.find(q => q.id === uuid);
+                                return matchedQuestion ? `"${matchedQuestion.question}"` : match;
+                              });
+                            }
+                            
+                            let questionText = question ? question.question : `Question ${area.question_id}`;
+                            // If the question ID is a UUID, try to find a better match
+                            if (!question && area.question_id && area.question_id.includes('-')) {
+                              const matchedQuestion = survey.questions.find(q => q.id === area.question_id);
+                              if (matchedQuestion) {
+                                questionText = matchedQuestion.question;
+                              }
+                            }
+                            
                             return (
                               <div key={index} className={`attention-item severity-${area.severity}`}>
-                                <h5>{question ? question.question : `Question ${area.question_id}`}</h5>
-                                <p>{area.issue}</p>
+                                <h5>{questionText}</h5>
+                                <p>{issueText}</p>
                                 <span className="severity-badge">{area.severity}</span>
                               </div>
                             );
@@ -393,13 +504,54 @@ const InsightsModal = ({ survey, onClose }) => {
                       <div className="ai-section">
                         <h4>Recommendations</h4>
                         <div className="recommendations-list">
-                          {aiAnalysis.structured_analysis.recommendations?.map((rec, index) => (
-                            <div key={index} className={`recommendation-item priority-${rec.priority}`}>
-                              <h5>{rec.action}</h5>
-                              <p>{rec.rationale}</p>
-                              <span className="priority-badge">{rec.priority} priority</span>
-                            </div>
-                          ))}
+                          {aiAnalysis.structured_analysis.recommendations?.map((rec, index) => {
+                            // Replace any question IDs in the action or rationale
+                            let actionText = rec.action;
+                            let rationaleText = rec.rationale;
+                            
+                            // Handle UUID-style question IDs
+                            const uuidPattern = new RegExp(`Question [a-f0-9-]{36}`, 'g');
+                            
+                            if (actionText) {
+                              survey.questions.forEach(q => {
+                                const idStr = `Question ${q.id}`;
+                                if (actionText.includes(idStr)) {
+                                  actionText = actionText.replace(new RegExp(idStr, 'g'), `"${q.question}"`);
+                                }
+                              });
+                              
+                              // Also try to match UUID pattern
+                              actionText = actionText.replace(uuidPattern, (match) => {
+                                const uuid = match.replace('Question ', '');
+                                const matchedQuestion = survey.questions.find(q => q.id === uuid);
+                                return matchedQuestion ? `"${matchedQuestion.question}"` : match;
+                              });
+                            }
+                            
+                            if (rationaleText) {
+                              survey.questions.forEach(q => {
+                                const idStr = `Question ${q.id}`;
+                                if (rationaleText.includes(idStr)) {
+                                  rationaleText = rationaleText.replace(new RegExp(idStr, 'g'), `"${q.question}"`);
+                                }
+                              });
+                              
+                              // Also try to match UUID pattern
+                              rationaleText = rationaleText.replace(uuidPattern, (match) => {
+                                const uuid = match.replace('Question ', '');
+                                const matchedQuestion = survey.questions.find(q => q.id === uuid);
+                                return matchedQuestion ? `"${matchedQuestion.question}"` : match;
+                              });
+                            }
+                            
+                            return (
+                              <div key={index} className={`recommendation-item priority-${rec.priority}`}>
+                                <h5>{actionText}</h5>
+                                <p>{rationaleText}</p>
+                                <span className="priority-badge">{rec.priority} priority</span>
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
                     </>
@@ -414,12 +566,140 @@ const InsightsModal = ({ survey, onClose }) => {
   );
 };
 
+const RawResponsesModal = ({ survey, onClose }) => {
+  const [loading, setLoading] = useState(true);
+  const [responseData, setResponseData] = useState([]);
+  const [expandedQuestions, setExpandedQuestions] = useState({});
+  
+  useEffect(() => {
+    const fetchResponses = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('responses')
+          .select(`
+            *,
+            answers (
+              question_id,
+              answer
+            )
+          `)
+          .eq('survey_id', survey.id);
+
+        if (error) throw error;
+        setResponseData(data);
+        setLoading(false);
+      } catch (error) {
+        console.error('Error fetching responses:', error);
+        setLoading(false);
+      }
+    };
+
+    fetchResponses();
+  }, [survey.id]);
+
+  const toggleQuestion = (questionId) => {
+    setExpandedQuestions(prev => ({
+      ...prev,
+      [questionId]: !prev[questionId]
+    }));
+  };
+
+  if (loading) {
+    return (
+      <div className="insights-modal-overlay">
+        <div className="insights-modal loading-modal" onClick={e => e.stopPropagation()}>
+          <div className="loading-container">
+            <div className="loading-animation"></div>
+            <h3 className="loading-text">Loading Responses</h3>
+            <p className="loading-subtext">Retrieving survey responses...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
+  // Group answers by question
+  const answersByQuestion = {};
+  responseData.forEach(response => {
+    response.answers.forEach(answer => {
+      if (!answersByQuestion[answer.question_id]) {
+        answersByQuestion[answer.question_id] = [];
+      }
+      answersByQuestion[answer.question_id].push({
+        responseId: response.id,
+        answer: answer.answer,
+        submittedAt: response.created_at || response.completed_at || new Date().toISOString()
+      });
+    });
+  });
+
+  return (
+    <div className="insights-modal-overlay" onClick={onClose}>
+      <div className="insights-modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2>{survey.title} - Raw Responses</h2>
+          <button className="close-button" onClick={onClose}>
+            <FaTimes />
+          </button>
+        </div>
+
+        <div className="modal-content">
+          <div className="insights-container-box">
+            <div className="response-summary">
+              <h3>Response Summary</h3>
+              <p>Total Responses: {responseData.length}</p>
+            </div>
+
+            <div className="raw-responses-container">
+              {survey.questions.map(question => {
+                const answers = answersByQuestion[question.id] || [];
+                const isExpanded = expandedQuestions[question.id];
+                
+                return (
+                  <div key={question.id} className="question-responses-card">
+                    <div 
+                      className="question-header" 
+                      onClick={() => toggleQuestion(question.id)}
+                    >
+                      {isExpanded ? <FaChevronDown /> : <FaChevronRight />}
+                      <h4>{question.question}</h4>
+                      <span className="response-count">{answers.length} responses</span>
+                    </div>
+                    
+                    {isExpanded && (
+                      <div className="answers-list">
+                        {answers.length > 0 ? (
+                          answers.map((answer, index) => (
+                            <div key={index} className="answer-item">
+                              <p className="answer-text">{answer.answer}</p>
+                              <span className="answer-date">
+                                {answer.submittedAt ? new Date(answer.submittedAt).toLocaleString() : 'No date available'}
+                              </span>
+                            </div>
+                          ))
+                        ) : (
+                          <p className="no-answers">No responses for this question</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const Insights = () => {
   const { user } = useAuth();
   const [surveys, setSurveys] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedSurvey, setSelectedSurvey] = useState(null);
-
+  const [viewMode, setViewMode] = useState(null); // 'ai' or 'raw'
+  
   useEffect(() => {
     const fetchSurveys = async () => {
       if (!user) return;
@@ -452,6 +732,16 @@ const Insights = () => {
     fetchSurveys();
   }, [user]);
 
+  const openModal = (survey, mode) => {
+    setSelectedSurvey(survey);
+    setViewMode(mode);
+  };
+
+  const closeModal = () => {
+    setSelectedSurvey(null);
+    setViewMode(null);
+  };
+
   if (loading) {
     return (
       <div className="insights-container">
@@ -473,24 +763,42 @@ const Insights = () => {
       ) : (
         <div className="surveys-grid">
           {surveys.map(survey => (
-            <div key={survey.id} className="survey-card" onClick={() => setSelectedSurvey(survey)}>
+            <div key={survey.id} className="survey-card">
               <div className="card-icon">
                 <FaChartBar />
               </div>
               <h3>{survey.title}</h3>
               <p>{survey.description || 'No description provided'}</p>
-              <button className="view-insights-btn">
-                View Insights
-              </button>
-          </div>
-        ))}
-      </div>
+              <div className="survey-card-buttons">
+                <button 
+                  className="view-insights-btn ai-insights-btn"
+                  onClick={() => openModal(survey, 'ai')}
+                >
+                  <FaRobot className="btn-icon" /> View AI Insights
+                </button>
+                <button 
+                  className="view-insights-btn raw-data-btn"
+                  onClick={() => openModal(survey, 'raw')}
+                >
+                  <FaDatabase className="btn-icon" /> View Raw Responses
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
       )}
 
-      {selectedSurvey && (
+      {selectedSurvey && viewMode === 'ai' && (
         <InsightsModal 
           survey={selectedSurvey} 
-          onClose={() => setSelectedSurvey(null)} 
+          onClose={closeModal} 
+        />
+      )}
+      
+      {selectedSurvey && viewMode === 'raw' && (
+        <RawResponsesModal 
+          survey={selectedSurvey} 
+          onClose={closeModal} 
         />
       )}
     </div>
