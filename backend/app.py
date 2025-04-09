@@ -201,11 +201,10 @@ def get_suggestions():
     # Return the suggestions as JSON
     return jsonify({"suggestions": suggestions})
 
-# For Vercel deployment
-app.debug = False
-
-# Run the app
+# For local development
 if __name__ == '__main__':
-    # Get port from environment variable or use default
     port = int(os.environ.get('PORT', 5001))
     app.run(host='0.0.0.0', port=port)
+else:
+    # For Vercel deployment
+    app.debug = False
