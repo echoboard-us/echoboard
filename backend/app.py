@@ -12,9 +12,14 @@ load_dotenv()
 app = Flask(__name__)
 CORS(app)  # Enable CORS for frontend requests
 
+# Check for API key
+api_key = os.environ.get("OPENAI_API_KEY")
+if not api_key:
+    print("Warning: OPENAI_API_KEY not found in environment variables")
+
 # Initialize OpenAI client
 try:
-    client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+    client = OpenAI(api_key=api_key)
     print("OpenAI client initialized successfully.")
 except Exception as e:
     print(f"Error initializing OpenAI client: {e}")
@@ -98,7 +103,7 @@ Format your response with exactly 3 numbered suggestions:
 
         # Call the OpenAI API
         response = client.chat.completions.create(
-            model="gpt-4o",  # Using GPT-4o for best results
+            model="gpt-4-turbo-preview",  # Using the latest GPT-4 model
             messages=messages,
             temperature=0.7,
             max_tokens=500  # Increased token limit to accommodate choices
