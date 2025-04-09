@@ -707,11 +707,15 @@ const Survey = () => {
                     <FaLink />
                     <input 
                       type="text" 
-                      value={`${window.location.origin}/survey/${survey.id}`}
+                      value={`${process.env.NODE_ENV === 'development' 
+                        ? 'http://localhost:3000' 
+                        : window.location.origin}/survey/${survey.id}`}
                       readOnly
                     />
                     <button onClick={() => {
-                      navigator.clipboard.writeText(`${window.location.origin}/survey/${survey.id}`);
+                      navigator.clipboard.writeText(`${process.env.NODE_ENV === 'development' 
+                        ? 'http://localhost:3000' 
+                        : window.location.origin}/survey/${survey.id}`);
                       setCopySuccess(true);
                       setTimeout(() => setCopySuccess(false), 2000);
                     }}>
