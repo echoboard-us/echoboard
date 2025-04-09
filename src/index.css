@@ -34,8 +34,15 @@ p {
   /* Light theme variables */
   --primary-color: #4a90e2;
   --primary-color-dark: #357abd;
+  --primary-color-light: rgba(74, 144, 226, 0.1);
   --danger-color: #dc3545;
+  --danger-color-dark: #bd2130;
   --danger-color-light: rgba(220, 53, 69, 0.1);
+  --success-color: #28a745;
+  --success-color-dark: #1e7e34;
+  --success-color-light: rgba(40, 167, 69, 0.1);
+  --warning-color: #ffc107;
+  --warning-color-light: rgba(255, 193, 7, 0.1);
   --text-primary: #2c3e50;
   --text-secondary: #6c757d;
   --bg-primary: #ffffff;
@@ -50,8 +57,15 @@ p {
 [data-theme="dark"] {
   --primary-color: #4a90e2;
   --primary-color-dark: #357abd;
+  --primary-color-light: rgba(74, 144, 226, 0.2);
   --danger-color: #dc3545;
+  --danger-color-dark: #bd2130;
   --danger-color-light: rgba(220, 53, 69, 0.1);
+  --success-color: #28a745;
+  --success-color-dark: #1e7e34;
+  --success-color-light: rgba(40, 167, 69, 0.1);
+  --warning-color: #ffc107;
+  --warning-color-light: rgba(255, 193, 7, 0.1);
   --text-primary: #ffffff;
   --text-secondary: #b0b8c1;
   --bg-primary: #1a1a1a;

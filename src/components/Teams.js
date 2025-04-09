@@ -1,146 +1,528 @@
-import React, { useState } from "react";
-import { 
-  FaUsers, FaPlus, FaTrash, FaUserPlus, FaTimes, FaChevronDown, 
-  FaProjectDiagram, FaCalendar, FaCalendarCheck
+import React, { useState, useEffect } from "react";
+import {
+  FaUsers,
+  FaPlus,
+  FaTrash,
+  FaUserPlus,
+  FaBell,
+  FaCheck,
+  FaTimes,
 } from "react-icons/fa";
+import { supabase } from "../supabaseClient";
+import { useAuth } from "../context/AuthContext";
+import TeamInvite from "./TeamInvite";
 import "./Teams.css";
 
 const Teams = () => {
+  const { user } = useAuth();
   const [teams, setTeams] = useState([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showAddMemberModal, setShowAddMemberModal] = useState(false);
-  const [showMembersModal, setShowMembersModal] = useState(false);
-  const [showProjectsModal, setShowProjectsModal] = useState(false);
-  const [showCreateProjectModal, setShowCreateProjectModal] = useState(false);
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
   const [selectedTeam, setSelectedTeam] = useState(null);
   const [newTeam, setNewTeam] = useState({ name: "", description: "" });
-  const [newMember, setNewMember] = useState({
-    name: "",
-    email: "",
-    role: "member",
-  });
-  const [newProject, setNewProject] = useState({
-    name: "",
-    description: "",
-    startDate: "",
-    endDate: "",
-  });
+  const [pendingInvites, setPendingInvites] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [showNotifications, setShowNotifications] = useState(false);
 
-  const handleCreateTeam = (e) => {
+  // Fetch teams and pending invitations
+  useEffect(() => {
+    if (user) {
+      fetchTeams();
+      fetchPendingInvites();
+    }
+  }, [user]);
+
+  const fetchTeams = async () => {
+    try {
+      console.log("Fetching teams for user:", user.id);
+
+      // Fetch teams where user is a member
+      const { data: memberTeams, error: memberError } = await supabase
+        .from("team_members")
+        .select(
+          `
+          team_id,
+          role,
+          teams:team_id (
+            id,
+            name,
+            description
+          )
+        `
+        )
+        .eq("user_id", user.id);
+
+      if (memberError) {
+        console.error("Error fetching member teams:", memberError);
+        throw memberError;
+      }
+
+      console.log("Raw teams data:", memberTeams);
+
+      // Filter out entries with null teams and map to the expected format
+      const formattedTeams = memberTeams
+        .filter((mt) => mt.teams !== null)
+        .map((mt) => ({
+          id: mt.team_id, // Use team_id directly as fallback
+          name: mt.teams?.name || "Unnamed Team",
+          description: mt.teams?.description || "",
+          role: mt.role || "member",
+        }));
+
+      console.log("Formatted teams:", formattedTeams);
+      setTeams(formattedTeams);
+    } catch (error) {
+      console.error("Error fetching teams:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchPendingInvites = async () => {
+    try {
+      console.log(
+        "Fetching invites for user:",
+        user.id,
+        "User email:",
+        user.email
+      );
+
+      // First, let's check if the user exists in profiles
+      const { data: userProfile, error: profileError } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .single();
+
+      console.log("User profile check:", { userProfile, profileError });
+
+      // Get pending invitations with proper join syntax
+      const { data: invites, error } = await supabase
+        .from("team_invitations")
+        .select(
+          `
+          id,
+          team_id,
+          invited_by,
+          invited_user,
+          status,
+          created_at,
+          teams:team_id (
+            id,
+            name,
+            description
+          ),
+          profiles:invited_by (
+            email
+          )
+        `
+        )
+        .eq("invited_user", user.id)
+        .eq("status", "pending");
+
+      if (error) {
+        console.error("Error fetching invites:", error);
+        throw error;
+      }
+
+      console.log("Raw invites data (pending only):", invites);
+      console.log("Invites query conditions:", {
+        invited_user: user.id,
+        status: "pending",
+      });
+
+      setPendingInvites(invites || []);
+    } catch (error) {
+      console.error("Error fetching invites:", error);
+      setError("Failed to fetch invitations: " + error.message);
+    }
+  };
+
+  const handleCreateTeam = async (e) => {
     e.preventDefault();
-    if (newTeam.name.trim()) {
-      setTeams([...teams, { 
-        ...newTeam, 
-        id: Date.now(), 
-        members: [],
-        projects: []
-      }]);
+    if (!newTeam.name.trim()) return;
+
+    try {
+      // First create the team
+      const { data: team, error: teamError } = await supabase
+        .from("teams")
+        .insert([
+          {
+            name: newTeam.name,
+            description: newTeam.description,
+            creator_id: user.id,
+            created_by: user.id,
+          },
+        ])
+        .select()
+        .single();
+
+      if (teamError) {
+        console.error("Error creating team:", teamError);
+        setError(teamError.message);
+        return;
+      }
+
+      console.log("Team created successfully:", team);
+
+      // Then add the creator as a team member with 'owner' role
+      const { error: memberError } = await supabase
+        .from("team_members")
+        .insert([
+          {
+            team_id: team.id,
+            user_id: user.id,
+            role: "owner",
+          },
+        ]);
+
+      if (memberError) {
+        console.error("Error adding team member:", memberError);
+        setError(memberError.message);
+        return;
+      }
+
+      console.log("Team member added successfully");
+
+      setTeams([...teams, team]);
       setNewTeam({ name: "", description: "" });
       setShowCreateModal(false);
+      setError(null);
+    } catch (error) {
+      console.error("Error in handleCreateTeam:", error);
+      setError(error.message);
     }
   };
 
-  const handleDeleteTeam = (teamId) => {
-    setTeams(teams.filter((team) => team.id !== teamId));
+  const handleInviteClick = (team) => {
+    setSelectedTeam(team);
+    setShowInviteModal(true);
   };
 
-  const handleAddMember = (e) => {
-    e.preventDefault();
-    if (newMember.name.trim() && newMember.email.trim()) {
-      const updatedTeams = teams.map((team) => {
-        if (team.id === selectedTeam.id) {
-          return {
-            ...team,
-            members: [...team.members, { ...newMember, id: Date.now() }],
-          };
-        }
-        return team;
-      });
-      setTeams(updatedTeams);
-      setNewMember({ name: "", email: "", role: "member" });
-      setShowAddMemberModal(false);
-    }
-  };
+  const handleDebugAccept = async (inviteId, teamId) => {
+    console.log("DEBUG ACCEPT - Starting debug accept process");
+    console.log("Invite ID:", inviteId);
+    console.log("Team ID:", teamId);
+    console.log("User ID:", user.id);
 
-  const handleRemoveMember = (teamId, memberId) => {
-    const updatedTeams = teams.map((team) => {
-      if (team.id === teamId) {
-        return {
-          ...team,
-          members: team.members.filter((member) => member.id !== memberId),
-        };
+    try {
+      // 1. First check if the team exists directly
+      console.log("DEBUG ACCEPT - Step 1: Checking if team exists");
+      const { data: teamData, error: teamFetchError } = await supabase
+        .from("teams")
+        .select("*")
+        .eq("id", teamId)
+        .single();
+
+      console.log("Team fetch result:", teamData || "No team found");
+      console.log("Team fetch error:", teamFetchError);
+
+      if (teamFetchError || !teamData) {
+        console.error("Team doesn't exist in the database");
+        setError(
+          `Team with ID ${teamId} doesn't exist. Invitation is invalid.`
+        );
+        return;
       }
-      return team;
-    });
-    setTeams(updatedTeams);
+
+      // 2. Update invitation status
+      console.log("DEBUG ACCEPT - Step 2: Updating invitation status");
+      const { data: inviteData, error: inviteError } = await supabase
+        .from("team_invitations")
+        .update({ status: "accepted" })
+        .eq("id", inviteId)
+        .select();
+
+      console.log("Invitation update result:", inviteData);
+      console.log("Invitation update error:", inviteError);
+
+      if (inviteError) {
+        console.error("Error updating invitation status");
+        setError(`Failed to update invitation: ${inviteError.message}`);
+        return;
+      }
+
+      // 3. Add user as team member
+      console.log("DEBUG ACCEPT - Step 3: Adding user as team member");
+      const { data: memberData, error: memberError } = await supabase
+        .from("team_members")
+        .insert([
+          {
+            team_id: teamId,
+            user_id: user.id,
+            role: "member",
+          },
+        ])
+        .select();
+
+      console.log("Member insert result:", memberData);
+      console.log("Member insert error:", memberError);
+
+      if (memberError) {
+        console.error("Error adding user as team member");
+        setError(`Failed to add you as team member: ${memberError.message}`);
+        return;
+      }
+
+      // 4. Success!
+      console.log("DEBUG ACCEPT - Success! All steps completed");
+      setError(null);
+      alert(`Successfully joined team "${teamData.name}"`);
+
+      // 5. Refresh data
+      fetchPendingInvites();
+      fetchTeams();
+      setShowNotifications(false);
+    } catch (error) {
+      console.error("DEBUG ACCEPT - Uncaught error:", error);
+      setError(`Debug accept failed: ${error.message}`);
+    }
   };
 
-  const handleCreateProject = (e) => {
-    e.preventDefault();
-    if (newProject.name.trim() && newProject.startDate && newProject.endDate) {
-      const updatedTeams = teams.map((team) => {
-        if (team.id === selectedTeam.id) {
-          return {
-            ...team,
-            projects: [
-              ...team.projects,
-              { 
-                ...newProject, 
-                id: Date.now(),
-                status: "active"
-              }
-            ],
-          };
-        }
-        return team;
-      });
-      
-      // Update the main teams state
-      setTeams(updatedTeams);
-      
-      // Update the selectedTeam state to reflect the changes
-      setSelectedTeam({
-        ...selectedTeam,
-        projects: [
-          ...selectedTeam.projects,
-          { 
-            ...newProject, 
-            id: Date.now(),
-            status: "active"
+  const handleAcceptInvite = async (inviteId, teamId) => {
+    console.log(
+      "Accepting invite with - inviteId:",
+      inviteId,
+      "teamId:",
+      teamId,
+      "userId:",
+      user.id
+    );
+    try {
+      // First, get the team info to ensure it exists
+      const { data: teamData, error: teamFetchError } = await supabase
+        .from("teams")
+        .select("id, name, description")
+        .eq("id", teamId)
+        .single();
+
+      console.log("Team data:", teamData, "Team fetch error:", teamFetchError);
+
+      if (teamFetchError) {
+        console.error("Error fetching team:", teamFetchError);
+        setError("Failed to find team information: " + teamFetchError.message);
+        return;
+      }
+
+      if (!teamData) {
+        setError("Team not found. The team may have been deleted.");
+        return;
+      }
+
+      // Update invitation status
+      console.log("Updating invitation status to accepted");
+      const { data: inviteData, error: inviteError } = await supabase
+        .from("team_invitations")
+        .update({ status: "accepted" })
+        .eq("id", inviteId)
+        .select();
+
+      console.log("Invitation update result:", { inviteData, inviteError });
+
+      if (inviteError) throw inviteError;
+
+      // Add user as team member
+      console.log("Adding user as team member to team:", teamData.name);
+      const { data: memberData, error: memberError } = await supabase
+        .from("team_members")
+        .insert([
+          {
+            team_id: teamId,
+            user_id: user.id,
+            role: "member",
+          },
+        ])
+        .select();
+
+      console.log("Team member insert result:", { memberData, memberError });
+
+      if (memberError) throw memberError;
+
+      // Refresh the lists
+      console.log("Successfully accepted invitation, refreshing data");
+      fetchPendingInvites();
+      fetchTeams();
+      setShowNotifications(false);
+    } catch (error) {
+      console.error("Error accepting invite:", error);
+      setError("Failed to accept invitation: " + error.message);
+    }
+  };
+
+  const handleDeclineInvite = async (inviteId) => {
+    try {
+      const { error } = await supabase
+        .from("team_invitations")
+        .update({ status: "declined" })
+        .eq("id", inviteId);
+
+      if (error) throw error;
+      fetchPendingInvites();
+    } catch (error) {
+      console.error("Error declining invite:", error);
+      setError("Failed to decline invitation");
+    }
+  };
+
+  const handleDeleteClick = (team) => {
+    setSelectedTeam(team);
+    setShowDeleteConfirmModal(true);
+  };
+
+  const handleDeleteTeam = async () => {
+    if (!selectedTeam) return;
+
+    try {
+      setLoading(true);
+      console.log("Deleting team:", selectedTeam.id);
+
+      // First delete team members
+      const { error: membersError } = await supabase
+        .from("team_members")
+        .delete()
+        .eq("team_id", selectedTeam.id);
+
+      if (membersError) {
+        console.error("Error deleting team members:", membersError);
+        throw membersError;
+      }
+
+      // Then delete any pending invitations
+      const { error: invitationsError } = await supabase
+        .from("team_invitations")
+        .delete()
+        .eq("team_id", selectedTeam.id);
+
+      if (invitationsError) {
+        console.error("Error deleting team invitations:", invitationsError);
+        throw invitationsError;
+      }
+
+      // Finally delete the team
+      const { error: teamError } = await supabase
+        .from("teams")
+        .delete()
+        .eq("id", selectedTeam.id);
+
+      if (teamError) {
+        console.error("Error deleting team:", teamError);
+        throw teamError;
+      }
+
+      console.log("Team deleted successfully");
+
+      // Update local state
+      setTeams(teams.filter((team) => team.id !== selectedTeam.id));
+      setShowDeleteConfirmModal(false);
+      setSelectedTeam(null);
+    } catch (error) {
+      console.error("Error in handleDeleteTeam:", error);
+      setError("Failed to delete team: " + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const toggleNotifications = () => {
+    setShowNotifications(!showNotifications);
+  };
+
+  // Add a function to check if a team exists directly
+  const checkTeamExists = async (teamId) => {
+    try {
+      console.log("Checking if team exists:", teamId);
+      const { data, error } = await supabase
+        .from("teams")
+        .select("*")
+        .eq("id", teamId)
+        .single();
+
+      console.log("Team check result:", data);
+      console.log("Team check error:", error);
+
+      if (error) {
+        setError(`Error checking team: ${error.message}`);
+        return;
+      }
+
+      if (data) {
+        setError(null);
+        alert(`Team exists: ${JSON.stringify(data, null, 2)}`);
+      } else {
+        setError(`Team with ID ${teamId} not found`);
+      }
+    } catch (error) {
+      console.error("Error checking team:", error);
+      setError(`Error checking team: ${error.message}`);
+    }
+  };
+
+  // Add cleanup function to handle invalid invitations
+  const cleanupInvalidInvitations = async () => {
+    try {
+      setLoading(true);
+      console.log("Cleaning up invalid invitations...");
+
+      // Get all invitations for this user
+      const { data: userInvites, error: invitesError } = await supabase
+        .from("team_invitations")
+        .select("id, team_id")
+        .eq("invited_user", user.id)
+        .eq("status", "pending");
+
+      if (invitesError) {
+        console.error("Error fetching invitations for cleanup:", invitesError);
+        setError("Error fetching invitations: " + invitesError.message);
+        return;
+      }
+
+      console.log("Found invitations to check:", userInvites);
+
+      let invalidCount = 0;
+
+      // Check each invitation to see if the team exists
+      for (const invite of userInvites) {
+        const { data: teamData, error: teamError } = await supabase
+          .from("teams")
+          .select("id")
+          .eq("id", invite.team_id)
+          .maybeSingle();
+
+        // If team doesn't exist, mark the invitation as declined
+        if (!teamData || teamError) {
+          console.log(
+            `Team ${invite.team_id} doesn't exist, declining invitation ${invite.id}`
+          );
+
+          const { error: updateError } = await supabase
+            .from("team_invitations")
+            .update({ status: "declined" })
+            .eq("id", invite.id);
+
+          if (updateError) {
+            console.error("Error declining invalid invitation:", updateError);
+          } else {
+            invalidCount++;
           }
-        ]
-      });
-      
-      // Reset the form
-      setNewProject({ name: "", description: "", startDate: "", endDate: "" });
-      
-      // Close the create project modal
-      setShowCreateProjectModal(false);
-      
-      // Open the projects list modal
-      setShowProjectsModal(true);
-    }
-  };
-
-  const handleDeleteProject = (teamId, projectId) => {
-    const updatedTeams = teams.map((team) => {
-      if (team.id === teamId) {
-        return {
-          ...team,
-          projects: team.projects.filter((project) => project.id !== projectId),
-        };
+        }
       }
-      return team;
-    });
-    
-    // Update the main teams state
-    setTeams(updatedTeams);
-    
-    // Update the selectedTeam state to reflect the changes
-    setSelectedTeam({
-      ...selectedTeam,
-      projects: selectedTeam.projects.filter(p => p.id !== projectId)
-    });
+
+      // Refresh invitations list
+      fetchPendingInvites();
+
+      if (invalidCount > 0) {
+        setError(`Cleaned up ${invalidCount} invalid invitation(s)`);
+      } else {
+        setError("No invalid invitations found");
+      }
+    } catch (error) {
+      console.error("Error in cleanupInvalidInvitations:", error);
+      setError("Error cleaning up invitations: " + error.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -149,86 +531,193 @@ const Teams = () => {
         <h2>
           <FaUsers className="header-icon" /> Teams
         </h2>
-        <button
-          className="create-team-btn"
-          onClick={() => setShowCreateModal(true)}
-        >
-          <FaPlus /> Create Team
-        </button>
+        <div className="header-actions">
+          <button className="notification-btn" onClick={toggleNotifications}>
+            <FaBell />
+            {pendingInvites.length > 0 && (
+              <span className="notification-badge">
+                {pendingInvites.length}
+              </span>
+            )}
+          </button>
+          <button
+            className="create-team-btn"
+            onClick={() => setShowCreateModal(true)}
+          >
+            <FaPlus /> Create Team
+          </button>
+        </div>
+      </div>
+
+      {error && <div className="error-message">{error}</div>}
+
+      {/* Notifications Dropdown */}
+      {showNotifications && pendingInvites.length > 0 && (
+        <div className="notifications-dropdown">
+          <h3>Team Invitations</h3>
+          <div className="notification-items">
+            {pendingInvites.map((invite) => (
+              <div key={invite.id} className="notification-item">
+                <div className="notification-content">
+                  <p>
+                    <strong>{invite.profiles?.email || "Unknown User"}</strong>{" "}
+                    invited you to join{" "}
+                    <strong>{invite.teams?.name || "Unknown Team"}</strong>
+                  </p>
+                  <p className="notification-team-desc">
+                    {invite.teams?.description || "No description provided"}
+                  </p>
+                  <p className="notification-team-id">
+                    Team ID: {invite.team_id}
+                  </p>
+                </div>
+                <div className="notification-actions">
+                  <button
+                    className="notification-accept-btn"
+                    onClick={() => handleDebugAccept(invite.id, invite.team_id)}
+                    title="Accept"
+                  >
+                    <FaCheck />
+                  </button>
+                  <button
+                    className="notification-decline-btn"
+                    onClick={() => handleDeclineInvite(invite.id)}
+                    title="Decline"
+                  >
+                    <FaTimes />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Debug Information - Remove in production */}
+      <div className="debug-info">
+        <p>User ID: {user?.id}</p>
+        <p>User Email: {user?.email}</p>
+        <p>Pending Invites Count: {pendingInvites?.length || 0}</p>
+        <details>
+          <summary>View Team Invitations</summary>
+          <div>
+            <div style={{ marginBottom: "15px" }}>
+              <button
+                onClick={cleanupInvalidInvitations}
+                style={{
+                  padding: "5px 10px",
+                  backgroundColor: "#FF9800",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "4px",
+                  cursor: "pointer",
+                  marginTop: "10px",
+                }}
+              >
+                Cleanup Invalid Invitations
+              </button>
+            </div>
+            {pendingInvites?.length > 0 ? (
+              pendingInvites?.map((invite, index) => (
+                <div
+                  key={index}
+                  style={{
+                    marginBottom: "10px",
+                    borderBottom: "1px solid #eee",
+                    paddingBottom: "10px",
+                  }}
+                >
+                  <p>Invite ID: {invite.id}</p>
+                  <p>Team ID: {invite.team_id}</p>
+                  <p>Team Name: {invite.teams?.name || "undefined"}</p>
+                  <p>Team Description: {invite.teams?.description || "none"}</p>
+                  <p>Invited By: {invite.profiles?.email || "unknown"}</p>
+                  <p>Status: {invite.status}</p>
+                  <p>Created: {new Date(invite.created_at).toLocaleString()}</p>
+                  <div style={{ display: "flex", gap: "10px" }}>
+                    <button
+                      onClick={() =>
+                        handleDebugAccept(invite.id, invite.team_id)
+                      }
+                      style={{
+                        padding: "5px 10px",
+                        backgroundColor: "green",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "4px",
+                        cursor: "pointer",
+                      }}
+                    >
+                      Debug Accept
+                    </button>
+                    <button
+                      onClick={() => checkTeamExists(invite.team_id)}
+                      style={{
+                        padding: "5px 10px",
+                        backgroundColor: "blue",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "4px",
+                        cursor: "pointer",
+                      }}
+                    >
+                      Check Team
+                    </button>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p>No pending invitations found</p>
+            )}
+          </div>
+        </details>
+        <details>
+          <summary>View Raw Invites Data</summary>
+          <pre>{JSON.stringify(pendingInvites, null, 2)}</pre>
+        </details>
       </div>
 
       {/* Teams List */}
       <div className="teams-list">
-        {teams.map((team) => (
-          <div key={team.id} className="team-card">
-            <div className="team-info">
-              <h3>{team.name}</h3>
-              <p>{team.description}</p>
-
-              {/* Members Section */}
-              <div className="team-members">
-                <div className="members-header">
-                  <h4>Members ({team.members.length})</h4>
-                  <div className="members-actions">
+        {teams.length === 0 ? (
+          <div className="no-teams-message">
+            <p>
+              You don't have any teams yet. Create a team or wait for
+              invitations.
+            </p>
+          </div>
+        ) : (
+          teams.map((team) => (
+            <div key={team.id} className="team-card">
+              <div className="team-info">
+                <h3>{team.name || "Unnamed Team"}</h3>
+                <p className="team-id-display">ID: {team.id}</p>
+                <p>{team.description || "No description available"}</p>
+                <p className="team-role">
+                  Your role: <span className="role-badge">{team.role}</span>
+                </p>
+                <div className="team-actions">
+                  {(team.role === "owner" || team.role === "admin") && (
                     <button
-                      className="view-members-btn"
-                      onClick={() => {
-                        setSelectedTeam(team);
-                        setShowMembersModal(true);
-                      }}
+                      className="invite-member-btn"
+                      onClick={() => handleInviteClick(team)}
                     >
-                      View Members
+                      <FaUserPlus /> Invite Members
                     </button>
+                  )}
+                  {team.role === "owner" && (
                     <button
-                      className="add-member-btn"
-                      onClick={() => {
-                        setSelectedTeam(team);
-                        setShowAddMemberModal(true);
-                      }}
+                      className="delete-team-btn"
+                      onClick={() => handleDeleteClick(team)}
                     >
-                      <FaUserPlus />
+                      <FaTrash /> Delete Team
                     </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Projects Section */}
-              <div className="team-projects">
-                <div className="projects-header">
-                  <h4>Projects ({team.projects.length})</h4>
-                  <div className="projects-actions">
-                    <button
-                      className="view-projects-btn"
-                      onClick={() => {
-                        setSelectedTeam(team);
-                        setShowProjectsModal(true);
-                        setShowCreateProjectModal(false);
-                      }}
-                    >
-                      View Projects
-                    </button>
-                    <button
-                      className="add-project-btn"
-                      onClick={() => {
-                        setSelectedTeam(team);
-                        setShowCreateProjectModal(true);
-                        setShowProjectsModal(false);
-                      }}
-                    >
-                      <FaProjectDiagram />
-                    </button>
-                  </div>
+                  )}
                 </div>
               </div>
             </div>
-            <button
-              className="delete-team-btn"
-              onClick={() => handleDeleteTeam(team.id)}
-            >
-              <FaTrash />
-            </button>
-          </div>
-        ))}
+          ))
+        )}
       </div>
 
       {/* Create Team Modal */}
@@ -236,6 +725,7 @@ const Teams = () => {
         <div className="modal-overlay">
           <div className="modal-content">
             <h3>Create New Team</h3>
+            {error && <div className="error-message">{error}</div>}
             <form onSubmit={handleCreateTeam}>
               <div className="form-group">
                 <label>Team Name</label>
@@ -266,7 +756,10 @@ const Teams = () => {
                 <button
                   type="button"
                   className="cancel-btn"
-                  onClick={() => setShowCreateModal(false)}
+                  onClick={() => {
+                    setShowCreateModal(false);
+                    setError(null);
+                  }}
                 >
                   Cancel
                 </button>
@@ -276,272 +769,51 @@ const Teams = () => {
         </div>
       )}
 
-      {/* Add Member Modal */}
-      {showAddMemberModal && selectedTeam && (
+      {/* Team Invite Modal */}
+      {showInviteModal && selectedTeam && (
         <div className="modal-overlay">
-          <div className="modal-content">
-            <div className="modal-header">
-              <h3>Add Team Member</h3>
-              <button
-                className="close-modal-btn"
-                onClick={() => setShowAddMemberModal(false)}
-              >
-                <FaTimes />
-              </button>
-            </div>
-            <div className="modal-body">
-              <form onSubmit={handleAddMember}>
-                <div className="form-group">
-                  <label>Name</label>
-                  <input
-                    type="text"
-                    value={newMember.name}
-                    onChange={(e) =>
-                      setNewMember({ ...newMember, name: e.target.value })
-                    }
-                    placeholder="Enter member name"
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Email</label>
-                  <input
-                    type="email"
-                    value={newMember.email}
-                    onChange={(e) =>
-                      setNewMember({ ...newMember, email: e.target.value })
-                    }
-                    placeholder="Enter member email"
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Role</label>
-                  <div className="custom-select">
-                    <select
-                      value={newMember.role}
-                      onChange={(e) =>
-                        setNewMember({ ...newMember, role: e.target.value })
-                      }
-                      required
-                    >
-                      <option value="member">Member</option>
-                      <option value="admin">Admin</option>
-                      <option value="owner">Owner</option>
-                    </select>
-                    <FaChevronDown className="select-arrow" />
-                  </div>
-                </div>
-                <div className="modal-actions">
-                  <button type="submit" className="submit-btn">
-                    Add Member
-                  </button>
-                  <button
-                    type="button"
-                    className="cancel-btn"
-                    onClick={() => setShowAddMemberModal(false)}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
+          <TeamInvite
+            teamId={selectedTeam.id}
+            teamName={selectedTeam.name}
+            onClose={() => {
+              setShowInviteModal(false);
+              setSelectedTeam(null);
+            }}
+          />
         </div>
       )}
 
-      {/* Team Members Modal */}
-      {showMembersModal && selectedTeam && (
+      {/* Delete Team Confirmation Modal */}
+      {showDeleteConfirmModal && selectedTeam && (
         <div className="modal-overlay">
           <div className="modal-content">
-            <div className="modal-header">
-              <h3>{selectedTeam.name} Members</h3>
+            <h3>Delete Team</h3>
+            <p className="delete-confirmation-message">
+              Are you sure you want to delete the team "
+              {selectedTeam.name || "Unnamed Team"}"? This action cannot be
+              undone.
+            </p>
+            <p className="delete-warning">
+              This will remove all team members and pending invitations.
+            </p>
+            <div className="modal-actions">
               <button
-                className="close-modal-btn"
-                onClick={() => setShowMembersModal(false)}
+                className="delete-confirm-btn"
+                onClick={handleDeleteTeam}
+                disabled={loading}
               >
-                <FaTimes />
+                {loading ? "Deleting..." : "Delete Team"}
               </button>
-            </div>
-            <div className="modal-body">
-              <div className="members-list">
-                {selectedTeam.members.map((member) => (
-                  <div key={member.id} className="member-item">
-                    <div className="member-info">
-                      <span className="member-name">{member.name}</span>
-                      <span className="member-email">{member.email}</span>
-                      <span className="member-role">{member.role}</span>
-                    </div>
-                    <button
-                      className="remove-member-btn"
-                      onClick={() => {
-                        handleRemoveMember(selectedTeam.id, member.id);
-                        setSelectedTeam({
-                          ...selectedTeam,
-                          members: selectedTeam.members.filter(m => m.id !== member.id)
-                        });
-                      }}
-                    >
-                      <FaTrash />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="modal-footer">
               <button
-                className="add-member-btn"
+                className="cancel-btn"
                 onClick={() => {
-                  setShowAddMemberModal(true);
-                  setShowMembersModal(false);
+                  setShowDeleteConfirmModal(false);
+                  setSelectedTeam(null);
                 }}
+                disabled={loading}
               >
-                Add Member
+                Cancel
               </button>
-              <button
-                className="close-modal-btn"
-                onClick={() => setShowMembersModal(false)}
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Team Projects Modal */}
-      {showProjectsModal && selectedTeam && (
-        <div className="modal-overlay">
-          <div className="modal-content">
-            <div className="modal-header">
-              <h3>{selectedTeam.name} Projects</h3>
-              <button
-                className="close-modal-btn"
-                onClick={() => setShowProjectsModal(false)}
-              >
-                <FaTimes />
-              </button>
-            </div>
-            <div className="modal-body">
-              <div className="projects-list">
-                {selectedTeam.projects.map((project) => (
-                  <div key={project.id} className="project-item">
-                    <div className="project-info">
-                      <h4 className="project-name">{project.name}</h4>
-                      <div className="project-dates">
-                        <span className="start-date">
-                          <FaCalendar /> Start: {new Date(project.startDate).toLocaleDateString()}
-                        </span>
-                        <span className="end-date">
-                          <FaCalendarCheck /> End: {new Date(project.endDate).toLocaleDateString()}
-                        </span>
-                      </div>
-                    </div>
-                    <button
-                      className="delete-project-btn"
-                      onClick={() => {
-                        handleDeleteProject(selectedTeam.id, project.id);
-                      }}
-                    >
-                      <FaTrash />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="modal-footer">
-              <button
-                className="add-project-btn"
-                onClick={() => {
-                  setShowCreateProjectModal(true);
-                  setShowProjectsModal(false);
-                }}
-              >
-                Add Project
-              </button>
-              <button
-                className="close-modal-btn"
-                onClick={() => setShowProjectsModal(false)}
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Create Project Modal */}
-      {showCreateProjectModal && selectedTeam && (
-        <div className="modal-overlay">
-          <div className="modal-content">
-            <div className="modal-header">
-              <h3>Create New Project</h3>
-              <button
-                className="close-modal-btn"
-                onClick={() => setShowCreateProjectModal(false)}
-              >
-                <FaTimes />
-              </button>
-            </div>
-            <div className="modal-body">
-              <form onSubmit={handleCreateProject}>
-                <div className="form-group">
-                  <label>Project Name</label>
-                  <input
-                    type="text"
-                    value={newProject.name}
-                    onChange={(e) =>
-                      setNewProject({ ...newProject, name: e.target.value })
-                    }
-                    placeholder="Enter project name"
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Description</label>
-                  <textarea
-                    value={newProject.description}
-                    onChange={(e) =>
-                      setNewProject({ ...newProject, description: e.target.value })
-                    }
-                    placeholder="Enter project description"
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Start Date</label>
-                  <input
-                    type="date"
-                    value={newProject.startDate}
-                    onChange={(e) =>
-                      setNewProject({ ...newProject, startDate: e.target.value })
-                    }
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label>End Date</label>
-                  <input
-                    type="date"
-                    value={newProject.endDate}
-                    onChange={(e) =>
-                      setNewProject({ ...newProject, endDate: e.target.value })
-                    }
-                    required
-                  />
-                </div>
-                <div className="modal-actions">
-                  <button type="submit" className="submit-btn">
-                    Create Project
-                  </button>
-                  <button
-                    type="button"
-                    className="cancel-btn"
-                    onClick={() => setShowCreateProjectModal(false)}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </form>
             </div>
           </div>
         </div>
