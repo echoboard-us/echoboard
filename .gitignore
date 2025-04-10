@@ -51,3 +51,4 @@ debug.log
 .cache/
 dist/
 .env*.local
+.vercel

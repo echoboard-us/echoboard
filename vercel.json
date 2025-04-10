@@ -8,7 +8,10 @@
     {
       "src": "package.json",
       "use": "@vercel/static-build",
-      "config": { "distDir": "build" }
+      "config": {
+        "distDir": "build",
+        "buildCommand": "npm run build"
+      }
     }
   ],
   "routes": [
@@ -18,23 +21,22 @@
     },
     {
       "src": "/static/(.*)",
-      "dest": "/build/static/$1"
+      "dest": "/static/$1"
     },
     {
       "src": "/favicon.ico",
-      "dest": "/build/favicon.ico"
+      "dest": "/favicon.ico"
     },
     {
       "src": "/manifest.json",
-      "dest": "/build/manifest.json"
+      "dest": "/manifest.json"
     },
     {
-      "src": "/echoboardIcon.png",
-      "dest": "/build/echoboardIcon.png"
+      "handle": "filesystem"
     },
     {
       "src": "/(.*)",
-      "dest": "/build/index.html"
+      "dest": "/index.html"
     }
   ]
-} 
+}
