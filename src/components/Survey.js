@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../supabaseClient.js';
 import { useAuth } from '../context/AuthContext';
-import { FaUsers, FaClock, FaTrash, FaEdit, FaShare, FaRobot, FaLightbulb, FaLink, FaCopy } from 'react-icons/fa';
+import { FaUsers, FaClock, FaTrash, FaEdit, FaShare, FaRobot, FaLightbulb, FaLink, FaCopy, FaClone } from 'react-icons/fa';
 import './Survey.css';
 import './AiSuggestions.css';
 
@@ -26,9 +26,8 @@ const Survey = () => {
   const { user } = useAuth(); // Get the current user
   const [surveys, setSurveys] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [setError] = useState(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
   const [selectedSurvey, setSelectedSurvey] = useState(null);
   const [viewingSurvey, setViewingSurvey] = useState(null);
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
@@ -43,15 +42,26 @@ const Survey = () => {
   const [showShareModal, setShowShareModal] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
   const [showAiInput, setShowAiInput] = useState(null); // Changed to null to track which question is being edited
+  
+  // New state variables for templates
+  const [templates, setTemplates] = useState([]);
+  const [showTemplateModal, setShowTemplateModal] = useState(false);
+  const [viewingTemplate, setViewingTemplate] = useState(null);
+
+  // Helper function to parse rating scale from question text
+  const getRatingScale = (questionText) => {
+    // Match patterns like "1-10", "0-5", etc.
+    const match = questionText.match(/(\d+)\s*-\s*(\d+)/);
+    if (match) {
+      const min = parseInt(match[1]);
+      const max = parseInt(match[2]);
+      return Math.max(1, max - min + 1); // Ensure at least 1 star
+    }
+    return 5; // Default to 5 stars if no scale found
+  };
 
   // Fetch surveys from Supabase
-  useEffect(() => {
-    if (user) { // Only fetch if we have a user
-      fetchSurveys();
-    }
-  }, [user]); // Re-fetch when user changes
-
-  const fetchSurveys = async () => {
+  const fetchSurveys = useCallback(async () => {
     try {
       console.log('Fetching surveys for user:', user.id);
       const { data, error } = await supabase
@@ -75,9 +85,98 @@ const Survey = () => {
     } catch (error) {
       console.error('Error fetching surveys:', error);
     }
-  };
+  }, [user]);
 
-  const handleCreateSurvey = async () => {
+  // Fetch survey templates
+  const fetchTemplates = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('survey_templates')
+        .select('id, title, description, type');
+
+      if (error) throw error;
+      setTemplates(data || []);
+    } catch (error) {
+      console.error('Error fetching survey templates:', error);
+    }
+  }, []);
+
+  // Fetch a single template with questions
+  const fetchTemplateDetails = useCallback(async (templateId) => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('survey_templates')
+        .select('*')
+        .eq('id', templateId)
+        .single();
+
+      if (error) throw error;
+      
+      // Parse JSONB questions if needed
+      if (data.questions && typeof data.questions === 'string') {
+        data.questions = JSON.parse(data.questions);
+      }
+      
+      return data;
+    } catch (error) {
+      console.error('Error fetching template details:', error);
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Fetch data when component mounts
+  useEffect(() => {
+    if (user) { // Only fetch if we have a user
+      fetchSurveys();
+      fetchTemplates(); // Fetch templates when component mounts
+    }
+  }, [user, fetchSurveys, fetchTemplates]); // Re-fetch when user changes
+
+  // Handle template selection
+  const handleTemplateSelect = useCallback(async (templateId) => {
+    try {
+      const template = await fetchTemplateDetails(templateId);
+      if (!template) return;
+
+      // Convert template questions to survey format
+      const questions = template.questions.map(q => ({
+        text: q.question,
+        type: q.type,
+        options: q.choices || [],
+        required: false
+      }));
+
+      setNewSurvey({
+        title: template.title,
+        description: template.description,
+        questions: questions,
+        template_id: template.id,
+        type: template.type
+      });
+
+      setShowTemplateModal(false);
+      setShowCreateForm(true);
+    } catch (error) {
+      console.error('Error selecting template:', error);
+    }
+  }, [fetchTemplateDetails]);
+
+  // View template details
+  const handleViewTemplate = useCallback(async (templateId) => {
+    try {
+      const template = await fetchTemplateDetails(templateId);
+      if (template) {
+        setViewingTemplate(template);
+      }
+    } catch (error) {
+      console.error('Error viewing template:', error);
+    }
+  }, [fetchTemplateDetails]);
+
+  const handleCreateSurvey = useCallback(async () => {
     if (!newSurvey.title.trim()) {
       alert('Please enter a survey title');
       return;
@@ -89,10 +188,11 @@ const Survey = () => {
         description: newSurvey.description,
         is_public: true,
         status: 'draft',
-        creator_id: user.id
+        creator_id: user.id,
+        template_id: newSurvey.template_id || null
       });
       
-      // Insert survey with creator_id
+      // Insert survey with creator_id and template_id if available
       const { data: surveyData, error: surveyError } = await supabase
         .from('surveys')
         .insert([{
@@ -100,7 +200,8 @@ const Survey = () => {
           description: newSurvey.description,
           is_public: true,
           status: 'draft',
-          creator_id: user.id // Add creator_id
+          creator_id: user.id,
+          template_id: newSurvey.template_id || null // Add template_id if available
         }])
         .select()
         .single();
@@ -154,9 +255,9 @@ const Survey = () => {
       console.error('Error creating survey:', error);
       alert(`Failed to create survey: ${error.message}`);
     }
-  };
+  }, [newSurvey, user, fetchSurveys]);
 
-  const handleUpdateSurvey = async () => {
+  const handleUpdateSurvey = useCallback(async () => {
     if (!editingSurvey.title.trim()) {
       alert('Please enter a survey title');
       return;
@@ -236,14 +337,14 @@ const Survey = () => {
       console.error('Error updating survey:', error);
       alert(`Failed to update survey: ${error.message}`);
     }
-  };
+  }, [editingSurvey, user, fetchSurveys]);
 
-  const handleDeleteClick = (survey) => {
+  const handleDeleteClick = useCallback((survey) => {
     setSelectedSurvey(survey);
     setShowDeleteConfirmModal(true);
-  };
+  }, []);
 
-  const handleDeleteSurvey = async () => {
+  const handleDeleteSurvey = useCallback(async () => {
     if (!selectedSurvey) return;
 
     try {
@@ -277,9 +378,9 @@ const Survey = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedSurvey, user, fetchSurveys, setError]);
 
-  const addQuestion = (survey = newSurvey) => {
+  const addQuestion = useCallback((survey = newSurvey) => {
     const updatedQuestions = [...survey.questions, { 
       text: '', 
       type: QUESTION_TYPES.TEXT,
@@ -291,9 +392,9 @@ const Survey = () => {
     } else {
       setNewSurvey({ ...survey, questions: updatedQuestions });
     }
-  };
+  }, [editingSurvey, newSurvey]);
 
-  const updateQuestion = (index, field, value, survey = newSurvey) => {
+  const updateQuestion = useCallback((index, field, value, survey = newSurvey) => {
     const updatedQuestions = [...survey.questions];
     // If updating the type field, ensure we use a valid enum value
     if (field === 'type') {
@@ -305,9 +406,9 @@ const Survey = () => {
     } else {
       setNewSurvey({ ...survey, questions: updatedQuestions });
     }
-  };
+  }, [editingSurvey, newSurvey]);
 
-  const addOption = (questionIndex, survey = newSurvey) => {
+  const addOption = useCallback((questionIndex, survey = newSurvey) => {
     const updatedQuestions = [...survey.questions];
     updatedQuestions[questionIndex].options = [
       ...(updatedQuestions[questionIndex].options || []),
@@ -318,9 +419,9 @@ const Survey = () => {
     } else {
       setNewSurvey({ ...survey, questions: updatedQuestions });
     }
-  };
+  }, [editingSurvey, newSurvey]);
 
-  const updateOption = (questionIndex, optionIndex, value, survey = newSurvey) => {
+  const updateOption = useCallback((questionIndex, optionIndex, value, survey = newSurvey) => {
     const updatedQuestions = [...survey.questions];
     updatedQuestions[questionIndex].options[optionIndex] = value;
     if (editingSurvey) {
@@ -328,9 +429,9 @@ const Survey = () => {
     } else {
       setNewSurvey({ ...survey, questions: updatedQuestions });
     }
-  };
+  }, [editingSurvey, newSurvey]);
 
-  const removeOption = (questionIndex, optionIndex, survey = newSurvey) => {
+  const removeOption = useCallback((questionIndex, optionIndex, survey = newSurvey) => {
     const updatedQuestions = [...survey.questions];
     updatedQuestions[questionIndex].options = updatedQuestions[questionIndex].options.filter((_, i) => i !== optionIndex);
     if (editingSurvey) {
@@ -338,9 +439,9 @@ const Survey = () => {
     } else {
       setNewSurvey({ ...survey, questions: updatedQuestions });
     }
-  };
+  }, [editingSurvey, newSurvey]);
 
-  const handleAiQuery = async (e) => {
+  const handleAiQuery = useCallback(async (e) => {
     e.preventDefault();
     if (!aiQuery.trim() || !editingSurvey) return;
 
@@ -394,9 +495,9 @@ const Survey = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [aiQuery, editingSurvey, showAiInput]);
 
-  const applySuggestion = (suggestion) => {
+  const applySuggestion = useCallback((suggestion) => {
     if (!editingSurvey) return;
 
     const updatedQuestions = [...editingSurvey.questions];
@@ -425,9 +526,9 @@ const Survey = () => {
       // Clear suggestions after applying
       setAiSuggestions(null);
     }
-  };
+  }, [editingSurvey]);
 
-  const handleStatusChange = async (surveyId, newStatus) => {
+  const handleStatusChange = useCallback(async (surveyId, newStatus) => {
     try {
       // First verify the user owns this survey
       const { data: surveyData, error: fetchError } = await supabase
@@ -463,26 +564,26 @@ const Survey = () => {
       console.error('Error updating survey status:', error);
       alert('Failed to update survey status: ' + error.message);
     }
-  };
+  }, [surveys, viewingSurvey, user]);
 
-  const prepareQuestionsForEdit = (questions) => {
+  const prepareQuestionsForEdit = useCallback((questions) => {
     return questions.map(q => ({
       text: q.question,
       type: q.type,
       options: q.choices || [],
       question_order: q.question_order
     }));
-  };
+  }, []);
 
-  const handleEdit = (survey) => {
+  const handleEdit = useCallback((survey) => {
     setEditingSurvey({
       ...survey,
       questions: prepareQuestionsForEdit(survey.questions)
     });
     setShowCreateForm(true);
-  };
+  }, [prepareQuestionsForEdit]);
 
-  const ViewSurveyModal = ({ survey, onClose }) => {
+  const ViewSurveyModal = useCallback(({ survey, onClose }) => {
     if (!survey) return null;
 
     // Get a safe status value
@@ -540,7 +641,7 @@ const Survey = () => {
                     
                     {question.type === 'rating' && (
                       <div className="rating-preview">
-                        {[1, 2, 3, 4, 5].map(num => (
+                        {Array.from({length: getRatingScale(question.question)}).map((_, num) => (
                           <span key={num} className="rating-star">★</span>
                         ))}
                       </div>
@@ -589,9 +690,9 @@ const Survey = () => {
         </div>
       </div>
     );
-  };
+  }, [handleStatusChange, showShareModal, copySuccess]);
 
-  const renderQuestionForm = (question, index, survey = newSurvey) => (
+  const renderQuestionForm = useCallback((question, index, survey = newSurvey) => (
     <div key={index} className="question-item">
       <div className="question-header">
         {/* Question text input wrapped in a container to pick up .question-text styles */}
@@ -758,18 +859,143 @@ const Survey = () => {
         </div>
       )}
     </div>
-  );
+  ), [newSurvey, editingSurvey, showAiInput, aiQuery, aiSuggestions, loading, handleAiQuery, updateQuestion, updateOption, removeOption, addOption, applySuggestion]);
+
+  // Template Modal Component
+  const TemplateModal = useCallback(() => {
+    return (
+      <div className="modal-overlay">
+        <div className="template-modal">
+          <div className="modal-header">
+            <h2>Select a Survey Template</h2>
+            <button className="close-modal-btn" onClick={() => setShowTemplateModal(false)}>×</button>
+          </div>
+          
+          <div className="modal-content">
+            <div className="templates-grid">
+              {templates.map((template) => (
+                <div key={template.id} className="template-card">
+                  <div className="template-header">
+                    {template.type && (
+                      <span className="template-type-badge">{template.type}</span>
+                    )}
+                    <h3>{template.title}</h3>
+                  </div>
+                  <p>{template.description}</p>
+                  <div className="template-actions">
+                    <button 
+                      className="preview-template-btn"
+                      onClick={() => handleViewTemplate(template.id)}
+                    >
+                      Preview
+                    </button>
+                    <button 
+                      className="use-template-btn"
+                      onClick={() => handleTemplateSelect(template.id)}
+                    >
+                      Use This Template
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }, [templates, handleViewTemplate, handleTemplateSelect]);
+
+  // Template Preview Modal Component
+  const TemplatePreviewModal = useCallback(({ template, onClose }) => {
+    if (!template) return null;
+
+    return (
+      <div className="modal-overlay">
+        <div className="view-survey-modal">
+          <div className="modal-header">
+            <h2>{template.title}</h2>
+            <button className="close-modal-btn" onClick={onClose}>×</button>
+          </div>
+          
+          <div className="modal-content">
+            <div className="survey-info">
+              <p className="survey-description">{template.description}</p>
+            </div>
+
+            <div className="survey-questions">
+              <h3>Questions</h3>
+              {template.questions && template.questions.map((question, index) => (
+                <div key={index} className="survey-question">
+                  <div className="question-number">Q{index + 1}</div>
+                  <div className="question-content">
+                    <p className="question-text">{question.question}</p>
+                    
+                    {/* Display options based on question type */}
+                    {(question.type === 'multiple_choice' || question.type === 'checkbox' || question.type === 'dropdown') && question.choices && (
+                      <div className="question-options">
+                        {question.choices.map((option, optionIndex) => (
+                          <div key={optionIndex} className="option">
+                            {question.type === 'checkbox' ? '☐' : '○'} {option}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {question.type === 'rating' && (
+                      <div className="rating-preview">
+                        {Array.from({length: getRatingScale(question.question)}).map((_, num) => (
+                          <span key={num} className="rating-star">★</span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="template-actions">
+              <button 
+                className="use-template-btn"
+                onClick={() => {
+                  handleTemplateSelect(template.id);
+                  onClose();
+                }}
+              >
+                Use This Template
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }, [handleTemplateSelect]);
 
   return (
     <div className="survey-container">
       <div className="survey-header">
         <h1>Surveys</h1>
-        <button 
-          className="create-survey-btn"
-          onClick={() => setShowCreateForm(true)}
-        >
-          Create New Survey
-        </button>
+        <div className="survey-header-buttons">
+          <button 
+            className="create-survey-btn"
+            onClick={() => {
+              setNewSurvey({
+                title: '',
+                description: '',
+                questions: [{ text: '', type: 'text', options: [], required: false }],
+                type: null
+              });
+              setShowCreateForm(true);
+            }}
+          >
+            Create New Survey
+          </button>
+          <button 
+            className="template-survey-btn"
+            onClick={() => setShowTemplateModal(true)}
+          >
+            <FaClone /> From Template
+          </button>
+        </div>
       </div>
 
       {(showCreateForm || editingSurvey) && (
@@ -924,8 +1150,19 @@ const Survey = () => {
           </div>
         </div>
       )}
+
+      {/* Template Selection Modal */}
+      {showTemplateModal && <TemplateModal />}
+
+      {/* Template Preview Modal */}
+      {viewingTemplate && (
+        <TemplatePreviewModal
+          template={viewingTemplate}
+          onClose={() => setViewingTemplate(null)}
+        />
+      )}
     </div>
   );
 };
 
-export default Survey; 
+export default Survey;

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
+import { getRatingScale } from '../utils/surveyUtils';
 import './SurveyResponse.css';
 
 const SurveyResponse = () => {
@@ -232,18 +233,21 @@ const SurveyResponse = () => {
 
             {question.type === 'rating' && (
               <div className="rating-container">
-                {[1, 2, 3, 4, 5].map((value) => (
-                  <label key={value} className="rating-label">
-                    <input
-                      type="radio"
-                      name={`question-${question.id}`}
-                      value={value}
-                      checked={responses[question.id] === value.toString()}
-                      onChange={(e) => handleInputChange(question.id, e.target.value)}
-                    />
-                    {value}
-                  </label>
-                ))}
+                {Array.from({length: getRatingScale(question.question)}).map((_, index) => {
+                  const value = index + 1;
+                  return (
+                    <label key={value} className="rating-label">
+                      <input
+                        type="radio"
+                        name={`question-${question.id}`}
+                        value={value}
+                        checked={responses[question.id] === value.toString()}
+                        onChange={(e) => handleInputChange(question.id, e.target.value)}
+                      />
+                      {value}
+                    </label>
+                  );
+                })}
               </div>
             )}
           </div>
