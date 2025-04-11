@@ -1,5 +1,5 @@
 import os
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, Response
 from dotenv import load_dotenv
 from flask_cors import CORS
 import re
@@ -24,6 +24,23 @@ try:
 except Exception as e:
     print(f"Error initializing OpenAI client: {e}")
     client = None
+
+# Add this function to handle serverless requests
+def handle_request(request):
+    """Handle requests in a serverless environment"""
+    with app.request_context(request):
+        # Get the path and method
+        path = request.path
+        method = request.method
+
+        # Route the request to the appropriate endpoint
+        if path.startswith('/api/suggest') and method == 'POST':
+            return get_suggestions()
+        
+        # Add more routes as needed
+        
+        # Default response for unmatched routes
+        return jsonify({"error": "Not found"}), 404
 
 # --- Helper Function ---
 def generate_suggestions(user_question: str, prompt_text: str, question_type: str = "text", choices: list = None) -> list:

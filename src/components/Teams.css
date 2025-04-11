@@ -178,39 +178,35 @@
 
 .team-card {
   background-color: var(--card-bg);
-  border-radius: 12px;
-  padding: 1.5rem;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 20px;
+  border: 1px solid var(--border-color);
+  transition: transform 0.2s, box-shadow 0.2s;
 }
 
-.team-info h3 {
-  margin: 0 0 0.5rem 0;
-  color: var(--text-primary);
+.team-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
-.team-info p {
-  margin: 0 0 1rem 0;
-  color: var(--text-secondary);
-  font-size: 0.9rem;
-}
-
-.invite-member-btn {
+.team-header {
   display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 1rem;
-  background-color: var(--bg-secondary);
-  color: var(--primary-color);
-  border: 1px solid var(--primary-color);
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.2s;
-  font-size: 0.875rem;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 15px;
 }
 
-.invite-member-btn:hover {
-  background-color: var(--primary-color);
-  color: white;
+.team-name {
+  color: var(--text-primary);
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.team-description {
+  color: var(--text-secondary);
+  margin: 10px 0;
+  font-size: 0.9rem;
 }
 
 /* Team Members Section */
@@ -331,27 +327,52 @@
 
 .team-actions {
   display: flex;
-  gap: 0.75rem;
-  margin-top: 0.5rem;
+  gap: 10px;
+  margin-top: 15px;
+  flex-wrap: wrap;
+  position: relative;
+}
+
+.invite-member-btn,
+.delete-team-btn,
+.manage-surveys-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.2s, transform 0.1s;
+}
+
+.invite-member-btn {
+  background-color: var(--primary-color);
+  color: white;
+}
+
+.manage-surveys-btn {
+  background-color: var(--accent-color);
+  color: white;
 }
 
 .delete-team-btn {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 1rem;
-  background-color: var(--bg-secondary);
-  color: var(--danger-color);
-  border: 1px solid var(--danger-color);
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.2s;
-  font-size: 0.875rem;
+  background-color: var(--error-color);
+  color: white;
 }
 
+.invite-member-btn:hover,
+.manage-surveys-btn:hover,
 .delete-team-btn:hover {
-  background-color: var(--danger-color);
-  color: white;
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.invite-member-btn:active,
+.manage-surveys-btn:active,
+.delete-team-btn:active {
+  transform: translateY(0);
 }
 
 .delete-confirmation-message {
@@ -892,4 +913,99 @@
   color: var(--text-secondary);
   margin-top: 0.25rem;
   font-family: monospace;
+}
+
+.surveys-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  z-index: 10;
+  min-width: 200px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.surveys-dropdown-header {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-color);
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.surveys-list {
+  padding: 8px 0;
+}
+
+.survey-item {
+  padding: 8px 12px;
+  transition: background-color 0.2s;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.survey-item:hover {
+  background-color: var(--bg-hover);
+}
+
+.survey-item-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  padding: 4px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.survey-item-content:hover {
+  background-color: var(--bg-secondary);
+}
+
+.survey-item-title {
+  color: var(--text-primary);
+  font-size: 14px;
+  margin-right: auto;
+}
+
+.survey-item-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.survey-item-status {
+  font-size: 12px;
+  padding: 2px 6px;
+  border-radius: 12px;
+  background-color: var(--bg-secondary);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.survey-item-status.draft {
+  background-color: var(--warning-color-light);
+  color: var(--warning-color);
+}
+
+.survey-item-status.active {
+  background-color: var(--success-color-light);
+  color: var(--success-color);
+}
+
+.survey-item-status.completed {
+  background-color: var(--primary-color-light);
+  color: var(--primary-color);
+}
+
+.no-surveys-message {
+  padding: 8px 12px;
+  color: var(--text-secondary);
+  font-size: 14px;
+  text-align: center;
 }

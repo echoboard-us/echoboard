@@ -7,14 +7,19 @@ import {
   FaBell,
   FaCheck,
   FaTimes,
+  FaClipboardList,
+  FaChevronDown,
+  FaExternalLinkAlt,
 } from "react-icons/fa";
 import { supabase } from "../supabaseClient";
 import { useAuth } from "../context/AuthContext";
 import TeamInvite from "./TeamInvite";
+import { useNavigate } from "react-router-dom";
 import "./Teams.css";
 
 const Teams = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [teams, setTeams] = useState([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
@@ -25,6 +30,9 @@ const Teams = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showSurveysDropdown, setShowSurveysDropdown] = useState({});
+  const [teamSurveys, setTeamSurveys] = useState({});
+  const [availableSurveys, setAvailableSurveys] = useState({});
 
   // Fetch teams and pending invitations
   useEffect(() => {
@@ -525,6 +533,190 @@ const Teams = () => {
     }
   };
 
+  // Add new function to fetch surveys for a team
+  const fetchTeamSurveys = async (teamId) => {
+    try {
+      const { data: surveys, error } = await supabase
+        .from('team_surveys')
+        .select(`
+          survey_id,
+          surveys (
+            id,
+            title,
+            description,
+            status
+          )
+        `)
+        .eq('team_id', teamId);
+
+      if (error) throw error;
+
+      const formattedSurveys = surveys
+        .filter(s => s.surveys)
+        .map(s => s.surveys);
+
+      setTeamSurveys(prev => ({
+        ...prev,
+        [teamId]: formattedSurveys
+      }));
+    } catch (error) {
+      console.error('Error fetching team surveys:', error);
+    }
+  };
+
+  // Add new function to fetch available surveys
+  const fetchAvailableSurveys = async (teamId) => {
+    try {
+      // First get all surveys created by the user
+      const { data: userSurveys, error: surveysError } = await supabase
+        .from('surveys')
+        .select('*')
+        .eq('creator_id', user.id);
+
+      if (surveysError) throw surveysError;
+
+      // Then get surveys already added to the team
+      const { data: teamSurveys, error: teamSurveysError } = await supabase
+        .from('team_surveys')
+        .select('survey_id')
+        .eq('team_id', teamId);
+
+      if (teamSurveysError) throw teamSurveysError;
+
+      // Filter out surveys that are already added to the team
+      const teamSurveyIds = teamSurveys.map(ts => ts.survey_id);
+      const availableSurveys = userSurveys.filter(
+        survey => !teamSurveyIds.includes(survey.id)
+      );
+
+      setAvailableSurveys(prev => ({
+        ...prev,
+        [teamId]: availableSurveys
+      }));
+    } catch (error) {
+      console.error('Error fetching available surveys:', error);
+    }
+  };
+
+  // Add new function to toggle surveys dropdown
+  const toggleSurveysDropdown = async (teamId) => {
+    if (!showSurveysDropdown[teamId]) {
+      await fetchTeamSurveys(teamId);
+      await fetchAvailableSurveys(teamId);
+    }
+    setShowSurveysDropdown(prev => ({
+      ...prev,
+      [teamId]: !prev[teamId]
+    }));
+  };
+
+  // Add new function to add survey to team
+  const addSurveyToTeam = async (teamId, surveyId) => {
+    try {
+      console.log('Adding survey to team:', { teamId, surveyId, userId: user.id });
+      
+      // First verify the team exists
+      const { data: teamExists, error: teamError } = await supabase
+        .from('teams')
+        .select('id')
+        .eq('id', teamId)
+        .single();
+
+      if (teamError || !teamExists) {
+        console.error('Team verification failed:', teamError);
+        setError('Failed to verify team');
+        return;
+      }
+
+      // Then verify the survey exists
+      const { data: surveyExists, error: surveyError } = await supabase
+        .from('surveys')
+        .select('id')
+        .eq('id', surveyId)
+        .single();
+
+      if (surveyError || !surveyExists) {
+        console.error('Survey verification failed:', surveyError);
+        setError('Failed to verify survey');
+        return;
+      }
+
+      // Check if the survey is already in the team
+      const { data: existing, error: existingError } = await supabase
+        .from('team_surveys')
+        .select('id')
+        .eq('team_id', teamId)
+        .eq('survey_id', surveyId)
+        .single();
+
+      if (existing) {
+        console.log('Survey already exists in team');
+        setError('This survey is already added to the team');
+        return;
+      }
+
+      if (existingError && existingError.code !== 'PGRST116') {
+        console.error('Error checking existing survey:', existingError);
+        setError('Failed to check if survey exists in team');
+        return;
+      }
+
+      // Finally, add the survey to the team
+      const { error: insertError } = await supabase
+        .from('team_surveys')
+        .insert({
+          team_id: teamId,
+          survey_id: surveyId,
+          created_by: user.id
+        });
+
+      if (insertError) {
+        console.error('Error adding survey to team:', insertError);
+        setError(insertError.message);
+        return;
+      }
+
+      console.log('Successfully added survey to team');
+      
+      // Clear any existing error
+      setError(null);
+
+      // Refresh the surveys lists
+      await fetchTeamSurveys(teamId);
+      await fetchAvailableSurveys(teamId);
+    } catch (error) {
+      console.error('Error in addSurveyToTeam:', error);
+      setError('Failed to add survey to team: ' + error.message);
+    }
+  };
+
+  // Add new function to remove survey from team
+  const removeSurveyFromTeam = async (teamId, surveyId) => {
+    try {
+      const { error } = await supabase
+        .from('team_surveys')
+        .delete()
+        .eq('team_id', teamId)
+        .eq('survey_id', surveyId);
+
+      if (error) throw error;
+
+      // Refresh the surveys lists
+      await fetchTeamSurveys(teamId);
+      await fetchAvailableSurveys(teamId);
+    } catch (error) {
+      console.error('Error removing survey from team:', error);
+    }
+  };
+
+  // Add function to handle survey click
+  const handleSurveyClick = (surveyId, e) => {
+    // Stop propagation to prevent the dropdown from closing
+    e.stopPropagation();
+    // Navigate to the survey view/edit page
+    navigate(`/surveys/${surveyId}`);
+  };
+
   return (
     <div className="teams-container">
       <div className="teams-header">
@@ -613,12 +805,108 @@ const Teams = () => {
                 </p>
                 <div className="team-actions">
                   {(team.role === "owner" || team.role === "admin") && (
-                    <button
-                      className="invite-member-btn"
-                      onClick={() => handleInviteClick(team)}
-                    >
-                      <FaUserPlus /> Invite Members
-                    </button>
+                    <>
+                      <button
+                        className="invite-member-btn"
+                        onClick={() => handleInviteClick(team)}
+                      >
+                        <FaUserPlus /> Invite Members
+                      </button>
+                      <div style={{ position: 'relative' }}>
+                        <button
+                          className="manage-surveys-btn"
+                          onClick={() => toggleSurveysDropdown(team.id)}
+                        >
+                          <FaClipboardList /> Manage Surveys <FaChevronDown />
+                        </button>
+                        {showSurveysDropdown[team.id] && (
+                          <div className="surveys-dropdown">
+                            <div className="surveys-dropdown-header">
+                              Team Surveys
+                            </div>
+                            <div className="surveys-list">
+                              {teamSurveys[team.id]?.map(survey => (
+                                <div key={survey.id} className="survey-item">
+                                  <div 
+                                    className="survey-item-content"
+                                    onClick={(e) => handleSurveyClick(survey.id, e)}
+                                    style={{ cursor: 'pointer', flex: 1, display: 'flex', alignItems: 'center', gap: '8px' }}
+                                  >
+                                    <span className="survey-item-title">
+                                      {survey.title}
+                                    </span>
+                                    <FaExternalLinkAlt size={12} style={{ color: 'var(--text-secondary)' }} />
+                                  </div>
+                                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                    <span className={`survey-item-status ${survey.status}`}>
+                                      {survey.status}
+                                    </span>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        removeSurveyFromTeam(team.id, survey.id);
+                                      }}
+                                      style={{ 
+                                        background: 'none',
+                                        border: 'none',
+                                        color: 'var(--danger-color)',
+                                        cursor: 'pointer',
+                                        padding: '4px'
+                                      }}
+                                    >
+                                      <FaTrash size={12} />
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                              <div className="surveys-dropdown-header">
+                                Available Surveys
+                              </div>
+                              {availableSurveys[team.id]?.map(survey => (
+                                <div key={survey.id} className="survey-item">
+                                  <div 
+                                    className="survey-item-content"
+                                    onClick={(e) => handleSurveyClick(survey.id, e)}
+                                    style={{ cursor: 'pointer', flex: 1, display: 'flex', alignItems: 'center', gap: '8px' }}
+                                  >
+                                    <span className="survey-item-title">
+                                      {survey.title}
+                                    </span>
+                                    <FaExternalLinkAlt size={12} style={{ color: 'var(--text-secondary)' }} />
+                                  </div>
+                                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                    <span className={`survey-item-status ${survey.status}`}>
+                                      {survey.status}
+                                    </span>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        addSurveyToTeam(team.id, survey.id);
+                                      }}
+                                      style={{ 
+                                        background: 'none',
+                                        border: 'none',
+                                        color: 'var(--success-color)',
+                                        cursor: 'pointer',
+                                        padding: '4px'
+                                      }}
+                                    >
+                                      <FaPlus size={12} />
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                              {(!teamSurveys[team.id] || teamSurveys[team.id].length === 0) &&
+                               (!availableSurveys[team.id] || availableSurveys[team.id].length === 0) && (
+                                <div className="no-surveys-message">
+                                  No surveys available
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </>
                   )}
                   {team.role === "owner" && (
                     <button
