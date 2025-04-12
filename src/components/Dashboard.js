@@ -23,6 +23,7 @@ const Dashboard = () => {
   const [dashboardCards, setDashboardCards] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [surveyFilter, setSurveyFilter] = useState('all'); // 'all', 'template', 'custom'
+  const [dynamicPromptSuggestions, setDynamicPromptSuggestions] = useState([]); // State for dynamic suggestions
 
   // --- OpenAI API Call Implementation --- 
   const callOpenAI = async (prompt) => {
@@ -110,6 +111,37 @@ const Dashboard = () => {
         setIsLoading(false);
         return;
       }
+
+      // --- Generate Dynamic Prompt Suggestions --- 
+      try {
+        const suggestionPrompt = `
+Based on the following survey response data (filtered by: ${currentFilter}):
+${JSON.stringify(responseData.slice(0, 10), null, 2)} ${responseData.length > 10 ? '\n... (data truncated for brevity)' : ''}
+Generate exactly 3 concise and relevant question suggestions (as a JSON array of strings) that a user might ask about this data. Focus on potential trends, comparisons, or key metrics.
+Example format: ["What is the overall satisfaction trend?", "Compare responses between Q1 and Q2", "Which area needs most improvement?"]
+Return ONLY the JSON array.
+`;
+        const suggestionsResultString = await callOpenAI(suggestionPrompt);
+        let suggestionsResult = [];
+        try {
+           suggestionsResult = JSON.parse(suggestionsResultString);
+           if (Array.isArray(suggestionsResult)) {
+             setDynamicPromptSuggestions(suggestionsResult.slice(0, 3)); // Ensure max 3 suggestions
+             console.log('Dynamic suggestions generated:', suggestionsResult.slice(0, 3));
+           } else {
+             console.warn('OpenAI suggestion response was not an array:', suggestionsResultString);
+             setDynamicPromptSuggestions([]); // Fallback to empty
+           }
+        } catch (suggestionParseError) {
+            console.error("Failed to parse JSON suggestions from OpenAI:", suggestionParseError);
+            console.error("Raw OpenAI Suggestion Response:", suggestionsResultString);
+            setDynamicPromptSuggestions([]); // Fallback to empty on parse error
+        }
+      } catch (suggestionError) {
+        console.error('Error generating prompt suggestions:', suggestionError);
+        setDynamicPromptSuggestions([]); // Fallback to empty on API error
+      }
+      // --- End Dynamic Prompt Suggestions ---
 
       // 2. Construct Prompt for OpenAI
       const prompt = `
@@ -246,13 +278,6 @@ Produce the JSON spec now.
       setDashboardCards([]);
     }
   }, [currentTeam, surveyFilter, fetchDataAndGenerateDashboard]);
-
-  const promptSuggestions = [
-    "Show project completion trends",
-    "Compare client satisfaction Q1 vs Q2",
-    "Analyze consultant utilization rates",
-    "Identify high-growth client sectors"
-  ];
 
   const handleAiQuery = (e) => {
     e.preventDefault();
@@ -469,7 +494,7 @@ Produce the JSON spec now.
       <div className={`ai-side-panel ${aiSidePanelExpanded ? 'expanded' : ''}`}>
         <div className="panel-header">
           <h3>Echo AI Assistant</h3>
-          <button className="close-button" onClick={toggleAiPanel}>
+          <button className="close-ai-panel-btn" onClick={toggleAiPanel}>
             <FaTimes />
           </button>
         </div>
@@ -489,16 +514,20 @@ Produce the JSON spec now.
         </div>
 
         <div className="prompt-suggestions">
-          <h4>Try asking about:</h4>
-          {promptSuggestions.map((prompt, index) => (
-            <button
-              key={index}
-              className="prompt-suggestion"
-              onClick={() => setAiQuery(prompt)}
-            >
-              {prompt}
-            </button>
-          ))}
+          <h4>Suggestions:</h4>
+          <div className="suggestion-buttons-container">
+            {isLoading && dynamicPromptSuggestions.length === 0 && <p>Loading suggestions...</p>}
+            {!isLoading && dynamicPromptSuggestions.length === 0 && <p>No suggestions available.</p>}
+            {dynamicPromptSuggestions.map((prompt, index) => (
+              <button
+                key={index}
+                className="prompt-suggestion"
+                onClick={() => setAiQuery(prompt)}
+              >
+                {prompt}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
