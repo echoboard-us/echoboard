@@ -1,22 +1,72 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   FaSearch, FaCalendar, FaDollarSign, FaBriefcase, 
-  FaBell, FaCog, FaRobot, FaChevronDown, FaSyncAlt,
+  FaBell, FaCog, FaRobot, FaSyncAlt,
   FaDownload, FaTimes, FaGripVertical, FaUsers,
   FaProjectDiagram, FaChartLine
 } from 'react-icons/fa';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import html2pdf from 'html2pdf.js';
 import './Dashboard.css';
+import { supabase } from '../supabaseClient';
 
 const Dashboard = () => {
   const [viewMode, setViewMode] = useState('Weekly');
-  const [currentTeam, setCurrentTeam] = useState('Strategy Team');
+  const [currentTeam, setCurrentTeam] = useState(null);
   const [aiQuery, setAiQuery] = useState('');
   const [lastUpdated] = useState(new Date().toLocaleString());
-  const [teamOptions] = useState(['Strategy Team', 'Technology Team', 'Operations Team', 'Finance Team']);
-  const [teamDropdownOpen, setTeamDropdownOpen] = useState(false);
+  const [teamOptions, setTeamOptions] = useState([]);
   const [aiSidePanelExpanded, setAiSidePanelExpanded] = useState(false);
+
+  useEffect(() => {
+    const fetchUserTeams = async () => {
+      try {
+        console.log('Starting team fetch process...');
+        
+        // Get current user
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
+        if (authError || !user) {
+          console.error('Auth error or no user:', authError);
+          throw authError || new Error('No user logged in');
+        }
+        
+        console.log('Current user:', user.id);
+        
+        // Simplify approach - get all teams
+        // First, get teams created by user
+        const { data: createdTeams, error: createdError } = await supabase
+          .from('teams')
+          .select('*');
+          
+        if (createdError) {
+          console.error('Error fetching all teams:', createdError);
+        } else {
+          console.log('All teams in system:', createdTeams);
+          
+          // For testing, just show all teams
+          const formattedTeams = createdTeams.map(team => ({
+            id: team.id,
+            name: team.name,
+            description: team.description || '',
+            role: team.creator_id === user.id ? 'owner' : 'member',
+            isCreator: team.creator_id === user.id
+          }));
+          
+          console.log('Formatted teams:', formattedTeams);
+          
+          setTeamOptions(formattedTeams);
+          if (formattedTeams.length > 0) {
+            setCurrentTeam(formattedTeams[0]);
+          }
+        }
+      } catch (error) {
+        console.error('Error in team fetching process:', error);
+        setTeamOptions([]);
+      }
+    };
+    
+    fetchUserTeams();
+  }, []);
 
   const promptSuggestions = [
     "Show project completion trends",
@@ -109,11 +159,6 @@ const Dashboard = () => {
     setAiSidePanelExpanded(true);
   };
 
-  const handleTeamChange = (team) => {
-    setCurrentTeam(team);
-    setTeamDropdownOpen(false);
-  };
-
   const handleAutoUpdateToggle = (index) => {
     const updatedStats = [...stats];
     updatedStats[index].autoUpdate = !updatedStats[index].autoUpdate;
@@ -155,23 +200,24 @@ const Dashboard = () => {
       <div className="dashboard-header">
         <div className="header-content">
           <div className="header-left">
-            <div className="team-switcher" onClick={() => setTeamDropdownOpen(!teamDropdownOpen)}>
+            {/* Team Selector */}
+            <div className="team-switcher">
               <FaBriefcase />
-              <span>{currentTeam}</span>
-              <FaChevronDown />
-              {teamDropdownOpen && (
-                <div className="team-dropdown">
-                  {teamOptions.map((team) => (
-                    <div
-                      key={team}
-                      className="team-option"
-                      onClick={() => handleTeamChange(team)}
-                    >
-                      {team}
-                    </div>
-                  ))}
-                </div>
-              )}
+              <select 
+                value={currentTeam?.id || ''}
+                onChange={(e) => {
+                  const selectedTeam = teamOptions.find(team => team.id === e.target.value);
+                  console.log('Selected team:', selectedTeam);
+                  setCurrentTeam(selectedTeam);
+                }}
+                className="team-select"
+              >
+                {teamOptions.map(team => (
+                  <option key={team.id} value={team.id}>
+                    {team.name} {team.role === 'owner' ? '(Owner)' : ''}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 
@@ -181,11 +227,15 @@ const Dashboard = () => {
               <span>2022-05-31 - 2022-11-16</span>
             </div>
             <div className="segment-selector">
-              <select defaultValue="all">
-                <option value="all">All</option>
-                <option value="facebook">Facebook</option>
-                <option value="google">Google Ads</option>
-                <option value="instagram">Instagram</option>
+              <select 
+                defaultValue="all"
+                onChange={(e) => {
+                  console.log('Survey filter changed:', e.target.value);
+                  // Future implementation: Filter surveys based on selection
+                }}
+              >
+                <option value="all">All Surveys</option>
+                <option value="templates">Templates Only</option>
               </select>
             </div>
           </div>

@@ -1031,3 +1031,139 @@ body {
   margin: 0;
   line-height: 1.5;
 }
+
+/* Team Selector Styles */
+.team-selector {
+  position: relative;
+  min-width: 200px;
+  z-index: 1000; /* Ensure dropdown appears above other elements */
+}
+
+.current-team {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  padding: 8px 12px;
+  border-radius: 4px;
+  background: var(--bg-color-light);
+  transition: all 0.2s;
+  width: 100%;
+}
+
+.current-team:hover {
+  background: var(--bg-color-lighter);
+}
+
+.dropdown-chevron {
+  transition: transform 0.2s;
+  margin-left: auto;
+}
+
+.dropdown-chevron.open {
+  transform: rotate(180deg);
+}
+
+.team-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  width: 100%;
+  background: white;
+  border-radius: 4px;
+  box-shadow: 0 3px 10px rgba(0,0,0,0.15);
+  z-index: 1000;
+  max-height: 300px;
+  overflow-y: auto;
+  margin-top: 4px;
+  border: 1px solid rgba(0,0,0,0.1);
+}
+
+.team-option {
+  padding: 10px 12px;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid rgba(0,0,0,0.05);
+}
+
+.team-option:last-child {
+  border-bottom: none;
+}
+
+.team-option:hover {
+  background: var(--bg-color-lightest);
+}
+
+.team-option.active {
+  background: var(--primary-color-light);
+  color: var(--primary-color-dark);
+  font-weight: 500;
+}
+
+.team-option-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.team-icon {
+  color: var(--text-color-light);
+  flex-shrink: 0;
+}
+
+.team-role-badge {
+  font-size: 0.7rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--primary-color);
+  color: white;
+  flex-shrink: 0;
+}
+
+.loading-teams, .no-teams {
+  padding: 12px;
+  color: var(--text-color-light);
+  font-style: italic;
+  text-align: center;
+}
+
+/* Team Switcher Styles */
+.team-switcher {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: var(--bg-color-light);
+  border-radius: 4px;
+}
+
+.team-select {
+  background: transparent;
+  border: none;
+  padding: 4px 8px;
+  font-size: 14px;
+  cursor: pointer;
+  min-width: 150px;
+  color: var(--text-color);
+  font-weight: 500;
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 0px center;
+  background-size: 16px;
+  padding-right: 20px;
+}
+
+.team-select:focus {
+  outline: none;
+}
+
+.team-select option {
+  background: white;
+  color: var(--text-color);
+}
