@@ -1111,3 +1111,88 @@
   font-style: italic;
   text-align: center;
 }
+
+/* Post-Mortem Styles */
+.post-mortem-section {
+  margin-bottom: 24px;
+}
+
+.post-mortem-section h5 {
+  font-size: 16px;
+  font-weight: 600;
+  color: #2c3e50;
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #edf2f7;
+}
+
+.post-mortem-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.post-mortem-item {
+  background: white;
+  border-radius: 8px;
+  padding: 16px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  border: 1px solid #e2e8f0;
+}
+
+.post-mortem-item h6 {
+  font-size: 15px;
+  font-weight: 600;
+  color: #2d3748;
+  margin: 0 0 12px 0;
+}
+
+.post-mortem-item .description {
+  color: #4a5568;
+  font-size: 14px;
+  line-height: 1.5;
+  margin-bottom: 12px;
+}
+
+.post-mortem-details {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: #f8fafc;
+  padding: 12px;
+  border-radius: 6px;
+}
+
+.detail-item {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.detail-item .label {
+  font-weight: 600;
+  color: #4a5568;
+  font-size: 13px;
+  min-width: 120px;
+}
+
+.detail-item .value {
+  color: #2d3748;
+  font-size: 13px;
+  flex: 1;
+}
+
+@media (max-width: 768px) {
+  .post-mortem-details {
+    flex-direction: column;
+  }
+  
+  .detail-item {
+    flex-direction: column;
+    gap: 4px;
+  }
+  
+  .detail-item .label {
+    min-width: auto;
+  }
+}

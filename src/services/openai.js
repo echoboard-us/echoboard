@@ -60,7 +60,13 @@ Given the following survey metadata, questions, and all responses, produce a str
 5. areas_for_attention: 
    • Questions or segments where responses indicate issues, concerns, or dissatisfaction.  
 6. recommendations: 
-   • 3–5 specific, prioritized, actionable steps leadership can take.  
+   • 3–5 specific, prioritized, actionable steps leadership can take.
+7. post_mortem:
+   • Analyze the survey responses to identify what went wrong in the project, challenges faced, and lessons learned.
+   • Look for responses that indicate project issues, setbacks, difficulties, or areas of improvement.
+   • Focus on identifying root causes of issues and potential preventive measures for future projects.
+   • IMPORTANT: Always provide at least one issue, challenge, and lesson learned based on the survey responses.
+   • If responses don't explicitly mention problems, infer potential issues from negative feedback or low ratings.
 
 Return as JSON only, using the schema described below. Do NOT include any extra text or markdown.
 
@@ -90,7 +96,18 @@ Schema:
   ],
   "recommendations": [
     { "action": "string", "priority": "low|medium|high", "rationale": "string" }
-  ]
+  ],
+  "post_mortem": {
+    "issues": [
+      { "title": "string", "description": "string", "root_cause": "string", "impact": "string" }
+    ],
+    "challenges": [
+      { "area": "string", "description": "string", "resolution_attempts": "string" }
+    ],
+    "lessons_learned": [
+      { "lesson": "string", "preventive_measure": "string" }
+    ]
+  }
 }`;
 
     const completion = await openai.chat.completions.create({

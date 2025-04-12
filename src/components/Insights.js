@@ -554,6 +554,75 @@ const InsightsModal = ({ survey, onClose }) => {
                           })}
                         </div>
                       </div>
+
+                      {/* Post-Mortem Analysis Section */}
+                      <div className="ai-section">
+                        <h4>Project Post-Mortem Analysis</h4>
+                        {console.log('Post-mortem data:', aiAnalysis.structured_analysis.post_mortem)}
+                        
+                        {/* Issues */}
+                        <div className="post-mortem-section">
+                          <h5>Key Issues Identified</h5>
+                          <div className="post-mortem-list">
+                            {aiAnalysis.structured_analysis.post_mortem?.issues?.map((issue, index) => {
+                              console.log('Processing issue:', issue);
+                              return (
+                                <div key={index} className="post-mortem-item">
+                                  <h6>{issue.title}</h6>
+                                  <p className="description">{issue.description}</p>
+                                  <div className="post-mortem-details">
+                                    <div className="detail-item">
+                                      <span className="label">Root Cause:</span>
+                                      <span className="value">{issue.root_cause}</span>
+                                    </div>
+                                    <div className="detail-item">
+                                      <span className="label">Impact:</span>
+                                      <span className="value">{issue.impact}</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* Challenges */}
+                        <div className="post-mortem-section">
+                          <h5>Challenges Faced</h5>
+                          <div className="post-mortem-list">
+                            {aiAnalysis.structured_analysis.post_mortem?.challenges?.map((challenge, index) => (
+                              <div key={index} className="post-mortem-item">
+                                <h6>{challenge.area}</h6>
+                                <p className="description">{challenge.description}</p>
+                                <div className="post-mortem-details">
+                                  <div className="detail-item">
+                                    <span className="label">Resolution Attempts:</span>
+                                    <span className="value">{challenge.resolution_attempts}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Lessons Learned */}
+                        <div className="post-mortem-section">
+                          <h5>Lessons Learned</h5>
+                          <div className="post-mortem-list">
+                            {aiAnalysis.structured_analysis.post_mortem?.lessons_learned?.map((lesson, index) => (
+                              <div key={index} className="post-mortem-item">
+                                <h6>{lesson.lesson}</h6>
+                                <div className="post-mortem-details">
+                                  <div className="detail-item">
+                                    <span className="label">Preventive Measure:</span>
+                                    <span className="value">{lesson.preventive_measure}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
                     </>
                   )}
                 </div>
