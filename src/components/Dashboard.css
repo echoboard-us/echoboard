@@ -164,12 +164,14 @@ body {
 
 .ai-query-form input {
   flex: 1;
+  width: 100%;
   border: none;
   background: none;
   padding: 0.5rem;
   font-size: 0.875rem;
   color: var(--text-primary);
-  margin: 0 0.5rem;
+  margin: 0;
+  min-width: 0;
 }
 
 .ai-button {
@@ -179,6 +181,7 @@ body {
   cursor: pointer;
   border-radius: 50%;
   transition: all 0.2s;
+  flex-shrink: 0;
 }
 
 .ai-button:hover {
