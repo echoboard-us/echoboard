@@ -6,7 +6,7 @@ import re
 import json
 from openai import OpenAI
 
-# Load environment variables
+# Load environment variables from .env file
 load_dotenv()
 
 app = Flask(__name__)
