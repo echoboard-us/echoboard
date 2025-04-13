@@ -5,7 +5,6 @@ import {
   FaTachometerAlt,
   FaClipboardList,
   FaLightbulb,
-  FaChartBar,
   FaUsers,
   FaSignOutAlt, 
   FaUserCircle  
@@ -49,10 +48,7 @@ const Sidebar = () => {
           <FaLightbulb className="nav-icon" />
           <span>Insights</span>
         </NavLink>
-        <NavLink to="/analytics" className="nav-link">
-          <FaChartBar className="nav-icon" />
-          <span>Analytics</span>
-        </NavLink>
+        {/* Analytics link removed */}
       </nav>
 
       {/* User Info and Logout Section */}
