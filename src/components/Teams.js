@@ -16,6 +16,7 @@ import { useAuth } from "../context/AuthContext";
 import TeamInvite from "./TeamInvite";
 import { useNavigate } from "react-router-dom";
 import "./Teams.css";
+import { toast } from "react-hot-toast";
 
 const Teams = () => {
   const { user } = useAuth();
@@ -53,68 +54,51 @@ const Teams = () => {
           `
           team_id,
           role,
-          teams:team_id (
+          team:team_id (
             id,
             name,
-            description
+            description,
+            creator_id
           )
         `
         )
         .eq("user_id", user.id);
 
       if (memberError) {
-        console.error("Error fetching member teams:", memberError);
-        throw memberError;
+        console.error("Error fetching teams:", memberError);
+        return;
       }
 
-      console.log("Raw teams data:", memberTeams);
+      console.log("Raw member teams data:", memberTeams);
 
-      // Filter out entries with null teams and map to the expected format
-      const formattedTeams = memberTeams
-        .filter((mt) => mt.teams !== null)
-        .map((mt) => ({
-          id: mt.team_id, // Use team_id directly as fallback
-          name: mt.teams?.name || "Unnamed Team",
-          description: mt.teams?.description || "",
-          role: mt.role || "member",
-        }));
+      // Transform the data to get teams with roles
+      const transformedTeams = memberTeams.map((member) => ({
+        id: member.team_id,
+        name: member.team?.name,
+        description: member.team?.description,
+        creator_id: member.team?.creator_id,
+        role: member.role,
+      }));
 
-      console.log("Formatted teams:", formattedTeams);
-      setTeams(formattedTeams);
+      console.log("Transformed teams:", transformedTeams);
+      setTeams(transformedTeams);
     } catch (error) {
-      console.error("Error fetching teams:", error);
-    } finally {
-      setLoading(false);
+      console.error("Error in fetchTeams:", error);
     }
   };
 
   const fetchPendingInvites = async () => {
     try {
-      console.log(
-        "Fetching invites for user:",
-        user.id,
-        "User email:",
-        user.email
-      );
+      console.log("Fetching pending invites for user:", user.id);
 
-      // First, let's check if the user exists in profiles
-      const { data: userProfile, error: profileError } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", user.id)
-        .single();
-
-      console.log("User profile check:", { userProfile, profileError });
-
-      // Get pending invitations with proper join syntax
-      const { data: invites, error } = await supabase
+      // Get pending invitations with team and inviter details in a single query
+      const { data: invites, error: invitesError } = await supabase
         .from("team_invitations")
         .select(
           `
           id,
           team_id,
           invited_by,
-          invited_user,
           status,
           created_at,
           teams:team_id (
@@ -123,27 +107,56 @@ const Teams = () => {
             description
           ),
           profiles:invited_by (
-            email
+            id,
+            email,
+            full_name
           )
         `
         )
         .eq("invited_user", user.id)
         .eq("status", "pending");
 
-      if (error) {
-        console.error("Error fetching invites:", error);
-        throw error;
+      if (invitesError) {
+        console.error("Error fetching invites:", invitesError);
+        throw invitesError;
       }
 
-      console.log("Raw invites data (pending only):", invites);
-      console.log("Invites query conditions:", {
-        invited_user: user.id,
-        status: "pending",
+      console.log("=== DEBUG: Raw Invites Data ===");
+      invites?.forEach((invite) => {
+        console.log("Invite:", {
+          id: invite.id,
+          team_id: invite.team_id,
+          teams_data: invite.teams,
+          raw_invite: invite,
+        });
       });
 
-      setPendingInvites(invites || []);
+      if (!invites || invites.length === 0) {
+        console.log("No pending invites found");
+        setPendingInvites([]);
+        return;
+      }
+
+      // Format the invites with the joined data
+      const formattedInvites = invites.map((invite) => {
+        console.log("=== DEBUG: Processing Invite ===", {
+          id: invite.id,
+          team_id: invite.team_id,
+          teams_object: invite.teams,
+          teams_name: invite.teams?.name,
+          full_raw_invite: invite,
+        });
+        return {
+          ...invite,
+          team: invite.teams,
+          inviter: invite.profiles,
+        };
+      });
+
+      console.log("=== DEBUG: Final Formatted Invites ===", formattedInvites);
+      setPendingInvites(formattedInvites);
     } catch (error) {
-      console.error("Error fetching invites:", error);
+      console.error("Error in fetchPendingInvites:", error);
       setError("Failed to fetch invitations: " + error.message);
     }
   };
@@ -290,50 +303,24 @@ const Teams = () => {
   };
 
   const handleAcceptInvite = async (inviteId, teamId) => {
-    console.log(
-      "Accepting invite with - inviteId:",
-      inviteId,
-      "teamId:",
-      teamId,
-      "userId:",
-      user.id
-    );
     try {
-      // First, get the team info to ensure it exists
-      const { data: teamData, error: teamFetchError } = await supabase
-        .from("teams")
-        .select("id, name, description")
-        .eq("id", teamId)
-        .single();
+      console.log("Accepting invite:", { inviteId, teamId });
 
-      console.log("Team data:", teamData, "Team fetch error:", teamFetchError);
-
-      if (teamFetchError) {
-        console.error("Error fetching team:", teamFetchError);
-        setError("Failed to find team information: " + teamFetchError.message);
-        return;
-      }
-
-      if (!teamData) {
-        setError("Team not found. The team may have been deleted.");
-        return;
-      }
-
-      // Update invitation status
-      console.log("Updating invitation status to accepted");
-      const { data: inviteData, error: inviteError } = await supabase
+      // First update the invitation status
+      const { error: inviteError } = await supabase
         .from("team_invitations")
         .update({ status: "accepted" })
-        .eq("id", inviteId)
-        .select();
+        .eq("id", inviteId);
 
-      console.log("Invitation update result:", { inviteData, inviteError });
+      if (inviteError) {
+        console.error("Error updating invitation status:", inviteError);
+        throw inviteError;
+      }
 
-      if (inviteError) throw inviteError;
+      console.log("Successfully updated invitation status");
 
-      // Add user as team member
-      console.log("Adding user as team member to team:", teamData.name);
-      const { data: memberData, error: memberError } = await supabase
+      // Then add the user as a team member
+      const { error: memberError } = await supabase
         .from("team_members")
         .insert([
           {
@@ -341,36 +328,43 @@ const Teams = () => {
             user_id: user.id,
             role: "member",
           },
-        ])
-        .select();
+        ]);
 
-      console.log("Team member insert result:", { memberData, memberError });
+      if (memberError) {
+        console.error("Error adding team member:", memberError);
+        throw memberError;
+      }
 
-      if (memberError) throw memberError;
+      console.log("Successfully added user as team member");
 
-      // Refresh the lists
-      console.log("Successfully accepted invitation, refreshing data");
+      // Refresh the invites and teams lists
       fetchPendingInvites();
       fetchTeams();
-      setShowNotifications(false);
     } catch (error) {
-      console.error("Error accepting invite:", error);
-      setError("Failed to accept invitation: " + error.message);
+      console.error("Error in handleAcceptInvite:", error);
+      toast.error("Failed to accept invitation");
     }
   };
 
   const handleDeclineInvite = async (inviteId) => {
     try {
+      console.log("Declining invite:", inviteId);
+
       const { error } = await supabase
         .from("team_invitations")
         .update({ status: "declined" })
         .eq("id", inviteId);
 
-      if (error) throw error;
+      if (error) {
+        console.error("Error declining invitation:", error);
+        throw error;
+      }
+
+      console.log("Successfully declined invitation");
       fetchPendingInvites();
     } catch (error) {
-      console.error("Error declining invite:", error);
-      setError("Failed to decline invitation");
+      console.error("Error in handleDeclineInvite:", error);
+      toast.error("Failed to decline invitation");
     }
   };
 
@@ -379,57 +373,36 @@ const Teams = () => {
     setShowDeleteConfirmModal(true);
   };
 
-  const handleDeleteTeam = async () => {
-    if (!selectedTeam) return;
-
+  const handleDeleteTeam = async (teamId) => {
     try {
-      setLoading(true);
-      console.log("Deleting team:", selectedTeam.id);
-
-      // First delete team members
-      const { error: membersError } = await supabase
-        .from("team_members")
-        .delete()
-        .eq("team_id", selectedTeam.id);
-
-      if (membersError) {
-        console.error("Error deleting team members:", membersError);
-        throw membersError;
+      if (
+        !window.confirm(
+          "Are you sure you want to delete this team? This action cannot be undone."
+        )
+      ) {
+        return;
       }
 
-      // Then delete any pending invitations
-      const { error: invitationsError } = await supabase
-        .from("team_invitations")
-        .delete()
-        .eq("team_id", selectedTeam.id);
+      console.log("Deleting team:", teamId);
 
-      if (invitationsError) {
-        console.error("Error deleting team invitations:", invitationsError);
-        throw invitationsError;
-      }
-
-      // Finally delete the team
-      const { error: teamError } = await supabase
+      // Delete the team
+      const { error: deleteError } = await supabase
         .from("teams")
         .delete()
-        .eq("id", selectedTeam.id);
+        .eq("id", teamId)
+        .eq("creator_id", user.id); // Ensure only creator can delete
 
-      if (teamError) {
-        console.error("Error deleting team:", teamError);
-        throw teamError;
+      if (deleteError) {
+        console.error("Error deleting team:", deleteError);
+        toast.error("Failed to delete team");
+        return;
       }
 
-      console.log("Team deleted successfully");
-
-      // Update local state
-      setTeams(teams.filter((team) => team.id !== selectedTeam.id));
-      setShowDeleteConfirmModal(false);
-      setSelectedTeam(null);
+      toast.success("Team deleted successfully");
+      fetchTeams(); // Refresh the teams list
     } catch (error) {
       console.error("Error in handleDeleteTeam:", error);
-      setError("Failed to delete team: " + error.message);
-    } finally {
-      setLoading(false);
+      toast.error("Failed to delete team");
     }
   };
 
@@ -537,8 +510,9 @@ const Teams = () => {
   const fetchTeamSurveys = async (teamId) => {
     try {
       const { data: surveys, error } = await supabase
-        .from('team_surveys')
-        .select(`
+        .from("team_surveys")
+        .select(
+          `
           survey_id,
           surveys (
             id,
@@ -546,21 +520,22 @@ const Teams = () => {
             description,
             status
           )
-        `)
-        .eq('team_id', teamId);
+        `
+        )
+        .eq("team_id", teamId);
 
       if (error) throw error;
 
       const formattedSurveys = surveys
-        .filter(s => s.surveys)
-        .map(s => s.surveys);
+        .filter((s) => s.surveys)
+        .map((s) => s.surveys);
 
-      setTeamSurveys(prev => ({
+      setTeamSurveys((prev) => ({
         ...prev,
-        [teamId]: formattedSurveys
+        [teamId]: formattedSurveys,
       }));
     } catch (error) {
-      console.error('Error fetching team surveys:', error);
+      console.error("Error fetching team surveys:", error);
     }
   };
 
@@ -569,32 +544,32 @@ const Teams = () => {
     try {
       // First get all surveys created by the user
       const { data: userSurveys, error: surveysError } = await supabase
-        .from('surveys')
-        .select('*')
-        .eq('creator_id', user.id);
+        .from("surveys")
+        .select("*")
+        .eq("creator_id", user.id);
 
       if (surveysError) throw surveysError;
 
       // Then get surveys already added to the team
       const { data: teamSurveys, error: teamSurveysError } = await supabase
-        .from('team_surveys')
-        .select('survey_id')
-        .eq('team_id', teamId);
+        .from("team_surveys")
+        .select("survey_id")
+        .eq("team_id", teamId);
 
       if (teamSurveysError) throw teamSurveysError;
 
       // Filter out surveys that are already added to the team
-      const teamSurveyIds = teamSurveys.map(ts => ts.survey_id);
+      const teamSurveyIds = teamSurveys.map((ts) => ts.survey_id);
       const availableSurveys = userSurveys.filter(
-        survey => !teamSurveyIds.includes(survey.id)
+        (survey) => !teamSurveyIds.includes(survey.id)
       );
 
-      setAvailableSurveys(prev => ({
+      setAvailableSurveys((prev) => ({
         ...prev,
-        [teamId]: availableSurveys
+        [teamId]: availableSurveys,
       }));
     } catch (error) {
-      console.error('Error fetching available surveys:', error);
+      console.error("Error fetching available surveys:", error);
     }
   };
 
@@ -604,80 +579,84 @@ const Teams = () => {
       await fetchTeamSurveys(teamId);
       await fetchAvailableSurveys(teamId);
     }
-    setShowSurveysDropdown(prev => ({
+    setShowSurveysDropdown((prev) => ({
       ...prev,
-      [teamId]: !prev[teamId]
+      [teamId]: !prev[teamId],
     }));
   };
 
   // Add new function to add survey to team
   const addSurveyToTeam = async (teamId, surveyId) => {
     try {
-      console.log('Adding survey to team:', { teamId, surveyId, userId: user.id });
-      
+      console.log("Adding survey to team:", {
+        teamId,
+        surveyId,
+        userId: user.id,
+      });
+
       // First verify the team exists
       const { data: teamExists, error: teamError } = await supabase
-        .from('teams')
-        .select('id')
-        .eq('id', teamId)
+        .from("teams")
+        .select("id")
+        .eq("id", teamId)
         .single();
 
       if (teamError || !teamExists) {
-        console.error('Team verification failed:', teamError);
-        setError('Failed to verify team');
+        console.error("Team verification failed:", teamError);
+        setError("Failed to verify team");
         return;
       }
 
       // Then verify the survey exists
       const { data: surveyExists, error: surveyError } = await supabase
-        .from('surveys')
-        .select('id')
-        .eq('id', surveyId)
+        .from("surveys")
+        .select("id")
+        .eq("id", surveyId)
         .single();
 
       if (surveyError || !surveyExists) {
-        console.error('Survey verification failed:', surveyError);
-        setError('Failed to verify survey');
+        console.error("Survey verification failed:", surveyError);
+        setError("Failed to verify survey");
         return;
       }
 
       // Check if the survey is already in the team
       const { data: existing, error: existingError } = await supabase
-        .from('team_surveys')
-        .select('id')
-        .eq('team_id', teamId)
-        .eq('survey_id', surveyId)
+        .from("team_surveys")
+        .select("id")
+        .eq("team_id", teamId)
+        .eq("survey_id", surveyId)
         .single();
 
       if (existing) {
-        console.log('Survey already exists in team');
-        setError('This survey is already added to the team');
+        console.log("Survey already exists in team");
+        setError("This survey is already added to the team");
         return;
       }
 
-      if (existingError && existingError.code !== 'PGRST116') {
-        console.error('Error checking existing survey:', existingError);
-        setError('Failed to check if survey exists in team');
+      if (existingError && existingError.code !== "PGRST116") {
+        console.error("Error checking existing survey:", existingError);
+        setError("Failed to check if survey exists in team");
         return;
       }
 
       // Finally, add the survey to the team
       const { error: insertError } = await supabase
-        .from('team_surveys')
+        .from("team_surveys")
         .insert({
           team_id: teamId,
           survey_id: surveyId,
-          created_by: user.id
+          created_by: user.id,
         });
 
       if (insertError) {
-        console.error('Error adding survey to team:', insertError);
+        console.error("Error adding survey to team:", insertError);
         setError(insertError.message);
         return;
       }
 
-      console.log('Successfully added survey to team');
-      
+      console.log("Successfully added survey to team");
+
       // Clear any existing error
       setError(null);
 
@@ -685,8 +664,8 @@ const Teams = () => {
       await fetchTeamSurveys(teamId);
       await fetchAvailableSurveys(teamId);
     } catch (error) {
-      console.error('Error in addSurveyToTeam:', error);
-      setError('Failed to add survey to team: ' + error.message);
+      console.error("Error in addSurveyToTeam:", error);
+      setError("Failed to add survey to team: " + error.message);
     }
   };
 
@@ -694,10 +673,10 @@ const Teams = () => {
   const removeSurveyFromTeam = async (teamId, surveyId) => {
     try {
       const { error } = await supabase
-        .from('team_surveys')
+        .from("team_surveys")
         .delete()
-        .eq('team_id', teamId)
-        .eq('survey_id', surveyId);
+        .eq("team_id", teamId)
+        .eq("survey_id", surveyId);
 
       if (error) throw error;
 
@@ -705,7 +684,7 @@ const Teams = () => {
       await fetchTeamSurveys(teamId);
       await fetchAvailableSurveys(teamId);
     } catch (error) {
-      console.error('Error removing survey from team:', error);
+      console.error("Error removing survey from team:", error);
     }
   };
 
@@ -748,38 +727,51 @@ const Teams = () => {
         <div className="notifications-dropdown">
           <h3>Team Invitations</h3>
           <div className="notification-items">
-            {pendingInvites.map((invite) => (
-              <div key={invite.id} className="notification-item">
-                <div className="notification-content">
-                  <p>
-                    <strong>{invite.profiles?.email || "Unknown User"}</strong>{" "}
-                    invited you to join{" "}
-                    <strong>{invite.teams?.name || "Unknown Team"}</strong>
-                  </p>
-                  <p className="notification-team-desc">
-                    {invite.teams?.description || "No description provided"}
-                  </p>
+            {pendingInvites.map((invite) => {
+              console.log("Rendering invite:", {
+                id: invite.id,
+                teamName: invite.teams?.name,
+                rawTeamData: invite.teams,
+                inviterName: invite.profiles?.full_name,
+                rawInviterData: invite.profiles,
+              });
+              return (
+                <div key={invite.id} className="notification-item">
+                  <div className="notification-content">
+                    <p>
+                      <strong>
+                        {invite.profiles?.full_name ||
+                          invite.profiles?.email ||
+                          "Unknown User"}
+                      </strong>{" "}
+                      invited you to join{" "}
+                      <strong>{invite.teams?.name || "Unknown Team"}</strong>
+                    </p>
+                    <p className="notification-team-desc">
+                      {invite.teams?.description || "No description provided"}
+                    </p>
+                  </div>
+                  <div className="notification-actions">
+                    <button
+                      className="notification-accept-btn"
+                      onClick={() =>
+                        handleAcceptInvite(invite.id, invite.team_id)
+                      }
+                      title="Accept"
+                    >
+                      <FaCheck />
+                    </button>
+                    <button
+                      className="notification-decline-btn"
+                      onClick={() => handleDeclineInvite(invite.id)}
+                      title="Decline"
+                    >
+                      <FaTimes />
+                    </button>
+                  </div>
                 </div>
-                <div className="notification-actions">
-                  <button
-                    className="notification-accept-btn"
-                    onClick={() =>
-                      handleAcceptInvite(invite.id, invite.team_id)
-                    }
-                    title="Accept"
-                  >
-                    <FaCheck />
-                  </button>
-                  <button
-                    className="notification-decline-btn"
-                    onClick={() => handleDeclineInvite(invite.id)}
-                    title="Decline"
-                  >
-                    <FaTimes />
-                  </button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
@@ -801,7 +793,8 @@ const Teams = () => {
                 <p className="team-id-display">ID: {team.id}</p>
                 <p>{team.description || "No description available"}</p>
                 <p className="team-role">
-                  Your role: <span className="role-badge">{team.role}</span>
+                  Your role:{" "}
+                  <span className="role-badge">{team.role?.toUpperCase()}</span>
                 </p>
                 <div className="team-actions">
                   {(team.role === "owner" || team.role === "admin") && (
@@ -812,7 +805,7 @@ const Teams = () => {
                       >
                         <FaUserPlus /> Invite Members
                       </button>
-                      <div style={{ position: 'relative' }}>
+                      <div style={{ position: "relative" }}>
                         <button
                           className="manage-surveys-btn"
                           onClick={() => toggleSurveysDropdown(team.id)}
@@ -825,33 +818,55 @@ const Teams = () => {
                               Team Surveys
                             </div>
                             <div className="surveys-list">
-                              {teamSurveys[team.id]?.map(survey => (
+                              {teamSurveys[team.id]?.map((survey) => (
                                 <div key={survey.id} className="survey-item">
-                                  <div 
+                                  <div
                                     className="survey-item-content"
-                                    onClick={(e) => handleSurveyClick(survey.id, e)}
-                                    style={{ cursor: 'pointer', flex: 1, display: 'flex', alignItems: 'center', gap: '8px' }}
+                                    onClick={(e) =>
+                                      handleSurveyClick(survey.id, e)
+                                    }
+                                    style={{
+                                      cursor: "pointer",
+                                      flex: 1,
+                                      display: "flex",
+                                      alignItems: "center",
+                                      gap: "8px",
+                                    }}
                                   >
                                     <span className="survey-item-title">
                                       {survey.title}
                                     </span>
-                                    <FaExternalLinkAlt size={12} style={{ color: 'var(--text-secondary)' }} />
+                                    <FaExternalLinkAlt
+                                      size={12}
+                                      style={{ color: "var(--text-secondary)" }}
+                                    />
                                   </div>
-                                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                    <span className={`survey-item-status ${survey.status}`}>
+                                  <div
+                                    style={{
+                                      display: "flex",
+                                      gap: "8px",
+                                      alignItems: "center",
+                                    }}
+                                  >
+                                    <span
+                                      className={`survey-item-status ${survey.status}`}
+                                    >
                                       {survey.status}
                                     </span>
                                     <button
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        removeSurveyFromTeam(team.id, survey.id);
+                                        removeSurveyFromTeam(
+                                          team.id,
+                                          survey.id
+                                        );
                                       }}
-                                      style={{ 
-                                        background: 'none',
-                                        border: 'none',
-                                        color: 'var(--danger-color)',
-                                        cursor: 'pointer',
-                                        padding: '4px'
+                                      style={{
+                                        background: "none",
+                                        border: "none",
+                                        color: "var(--danger-color)",
+                                        cursor: "pointer",
+                                        padding: "4px",
                                       }}
                                     >
                                       <FaTrash size={12} />
@@ -862,20 +877,39 @@ const Teams = () => {
                               <div className="surveys-dropdown-header">
                                 Available Surveys
                               </div>
-                              {availableSurveys[team.id]?.map(survey => (
+                              {availableSurveys[team.id]?.map((survey) => (
                                 <div key={survey.id} className="survey-item">
-                                  <div 
+                                  <div
                                     className="survey-item-content"
-                                    onClick={(e) => handleSurveyClick(survey.id, e)}
-                                    style={{ cursor: 'pointer', flex: 1, display: 'flex', alignItems: 'center', gap: '8px' }}
+                                    onClick={(e) =>
+                                      handleSurveyClick(survey.id, e)
+                                    }
+                                    style={{
+                                      cursor: "pointer",
+                                      flex: 1,
+                                      display: "flex",
+                                      alignItems: "center",
+                                      gap: "8px",
+                                    }}
                                   >
                                     <span className="survey-item-title">
                                       {survey.title}
                                     </span>
-                                    <FaExternalLinkAlt size={12} style={{ color: 'var(--text-secondary)' }} />
+                                    <FaExternalLinkAlt
+                                      size={12}
+                                      style={{ color: "var(--text-secondary)" }}
+                                    />
                                   </div>
-                                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                    <span className={`survey-item-status ${survey.status}`}>
+                                  <div
+                                    style={{
+                                      display: "flex",
+                                      gap: "8px",
+                                      alignItems: "center",
+                                    }}
+                                  >
+                                    <span
+                                      className={`survey-item-status ${survey.status}`}
+                                    >
                                       {survey.status}
                                     </span>
                                     <button
@@ -883,12 +917,12 @@ const Teams = () => {
                                         e.stopPropagation();
                                         addSurveyToTeam(team.id, survey.id);
                                       }}
-                                      style={{ 
-                                        background: 'none',
-                                        border: 'none',
-                                        color: 'var(--success-color)',
-                                        cursor: 'pointer',
-                                        padding: '4px'
+                                      style={{
+                                        background: "none",
+                                        border: "none",
+                                        color: "var(--success-color)",
+                                        cursor: "pointer",
+                                        padding: "4px",
                                       }}
                                     >
                                       <FaPlus size={12} />
@@ -896,12 +930,14 @@ const Teams = () => {
                                   </div>
                                 </div>
                               ))}
-                              {(!teamSurveys[team.id] || teamSurveys[team.id].length === 0) &&
-                               (!availableSurveys[team.id] || availableSurveys[team.id].length === 0) && (
-                                <div className="no-surveys-message">
-                                  No surveys available
-                                </div>
-                              )}
+                              {(!teamSurveys[team.id] ||
+                                teamSurveys[team.id].length === 0) &&
+                                (!availableSurveys[team.id] ||
+                                  availableSurveys[team.id].length === 0) && (
+                                  <div className="no-surveys-message">
+                                    No surveys available
+                                  </div>
+                                )}
                             </div>
                           </div>
                         )}
@@ -910,8 +946,8 @@ const Teams = () => {
                   )}
                   {team.role === "owner" && (
                     <button
-                      className="delete-team-btn"
-                      onClick={() => handleDeleteClick(team)}
+                      className="delete-button"
+                      onClick={() => handleDeleteTeam(team.id)}
                     >
                       <FaTrash /> Delete Team
                     </button>
@@ -1002,7 +1038,7 @@ const Teams = () => {
             <div className="modal-actions">
               <button
                 className="delete-confirm-btn"
-                onClick={handleDeleteTeam}
+                onClick={() => handleDeleteTeam(selectedTeam.id)}
                 disabled={loading}
               >
                 {loading ? "Deleting..." : "Delete Team"}

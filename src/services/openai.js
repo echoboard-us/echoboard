@@ -1,127 +1,52 @@
-import { OpenAI } from 'openai';
-// Initialize the OpenAI client
-const openai = new OpenAI({
-  apiKey: process.env.REACT_APP_OPENAI_API_KEY,
-  dangerouslyAllowBrowser: true
-});
+import { OpenAI } from "openai";
 
-// Add error handling for missing API key
-if (!process.env.REACT_APP_OPENAI_API_KEY) {
-  console.error('OpenAI API key is not configured. Please add your API key to the .env file.');
-  throw new Error('OpenAI API key is missing');
-}
-
-// Export the initialized client
-export { openai };
+// Mock data for insights
+const mockInsightsResponse = {
+  key_findings: [
+    {
+      title: "High Overall Satisfaction",
+      description: "Most respondents reported positive experiences",
+      supporting_stats: ["85% positive responses"],
+    },
+  ],
+  sentiment_summary: {
+    overall: "positive",
+    by_question: [{ question_id: "q1", sentiment: "positive", score: 4.2 }],
+  },
+  patterns_and_trends: [
+    {
+      pattern: "Consistent Feedback",
+      details: "Responses show consistent patterns across segments",
+    },
+  ],
+  statistical_highlights: [
+    { metric: "Average Rating", value: 4.2, context: "Out of 5 stars" },
+  ],
+  areas_for_attention: [
+    { question_id: "q2", issue: "Some concerns noted", severity: "low" },
+  ],
+  recommendations: [
+    {
+      action: "Continue current practices",
+      priority: "medium",
+      rationale: "Maintaining high satisfaction",
+    },
+  ],
+};
 
 export const generateSurveyInsights = async (survey, responses) => {
   try {
-    // Verify API key is available before making the request
-    if (!process.env.REACT_APP_OPENAI_API_KEY) {
-      throw new Error('OpenAI API key is not configured. Please add your API key to the .env file.');
-    }
-
-    // Format the survey data and responses into the expected payload format
-    const payload = {
-      survey: {
-        id: survey.id || `SURV_${Date.now()}`,
-        title: survey.title,
-        created_at: survey.created_at || new Date().toISOString(),
-        segments: survey.segments || {}
-      },
-      questions: survey.questions.map(q => ({
-        id: q.id,
-        text: q.question,
-        type: q.type,
-        scale: q.type === 'rating' ? [1, 5] : undefined
-      })),
-      responses: responses.map(r => ({
-        respondent_id: r.id || `user_${r.user_id || Math.random().toString(36).substring(2, 10)}`,
-        timestamp: r.created_at || new Date().toISOString(),
-        answers: r.answers.reduce((acc, answer) => {
-          acc[answer.question_id] = answer.answer;
-          return acc;
-        }, {})
-      }))
-    };
-
-    // Create a detailed prompt for GPT with the new structured format
-    const prompt = `You are an expert insights analyst. 
-Given the following survey metadata, questions, and all responses, produce a structured JSON object containing:
-
-1. key_findings: 
-   • A list of the 3–5 most important, high‑level takeaways.  
-2. sentiment_summary: 
-   • Overall sentiment (positive/neutral/negative) and breakdown by question or theme.  
-3. patterns_and_trends: 
-   • Any recurring themes, correlations, or shifts in responses over time or cohorts.  
-4. statistical_highlights: 
-   • Any notable statistics (e.g. means, medians, % distributions, outliers) that substantiate findings.  
-5. areas_for_attention: 
-   • Questions or segments where responses indicate issues, concerns, or dissatisfaction.  
-6. recommendations: 
-   • 3–5 specific, prioritized, actionable steps leadership can take.  
-
-Return as JSON only, using the schema described below. Do NOT include any extra text or markdown.
-
----PAYLOAD---
-${JSON.stringify(payload, null, 2)}
----END PAYLOAD---
-
-Schema:
-{
-  "key_findings": [
-    { "title": "string", "description": "string", "supporting_stats": ["string"] }
-  ],
-  "sentiment_summary": {
-    "overall": "positive|neutral|negative",
-    "by_question": [
-      { "question_id": "string", "sentiment": "positive|neutral|negative", "score": number }
-    ]
-  },
-  "patterns_and_trends": [
-    { "pattern": "string", "details": "string" }
-  ],
-  "statistical_highlights": [
-    { "metric": "string", "value": number, "context": "string" }
-  ],
-  "areas_for_attention": [
-    { "question_id": "string", "issue": "string", "severity": "low|medium|high" }
-  ],
-  "recommendations": [
-    { "action": "string", "priority": "low|medium|high", "rationale": "string" }
-  ]
-}`;
-
-    const completion = await openai.chat.completions.create({
-      messages: [{ role: "user", content: prompt }],
-      model: "gpt-4-turbo-preview",
-      temperature: 0.7,
-      max_tokens: 2000,
-      response_format: { type: "json_object" }
-    });
-
-    // Parse the JSON response
-    const analysisText = completion.choices[0].message.content;
-    let analysisJson;
-    
-    try {
-      analysisJson = JSON.parse(analysisText);
-    } catch (error) {
-      console.error('Error parsing JSON response:', error);
-      throw new Error('Failed to parse AI response as JSON');
-    }
-    
+    // Return mock data instead of making API call
     return {
-      raw_analysis: analysisText,
-      structured_analysis: analysisJson
+      raw_analysis: JSON.stringify(mockInsightsResponse),
+      structured_analysis: mockInsightsResponse,
     };
   } catch (error) {
-    console.error('Error generating insights:', error);
+    console.error("Error generating insights:", error);
     throw error;
   }
 };
 
 export default {
-  generateSurveyInsights
+  generateSurveyInsights,
 };

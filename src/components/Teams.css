@@ -190,6 +190,16 @@
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
+.team-card h3 {
+  margin: 0 0 12px 0;
+  color: var(--text-primary);
+}
+
+.team-card p {
+  margin: 8px 0;
+  color: var(--text-secondary);
+}
+
 .team-header {
   display: flex;
   justify-content: space-between;
@@ -589,7 +599,8 @@
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
-.modal-content h3, .create-team-modal h3 {
+.modal-content h3,
+.create-team-modal h3 {
   margin: 0 0 1.5rem 0;
   color: var(--text-primary);
 }
@@ -1008,4 +1019,25 @@
   color: var(--text-secondary);
   font-size: 14px;
   text-align: center;
+}
+
+.delete-button {
+  background-color: var(--danger-color, #dc3545);
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: background-color 0.2s;
+}
+
+.delete-button:hover {
+  background-color: var(--danger-color-dark, #c82333);
+}
+
+.delete-button svg {
+  font-size: 14px;
 }
