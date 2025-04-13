@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
   FaSearch, FaCalendar, FaBriefcase, 
-  FaBell, FaCog, FaRobot, 
-  FaGripVertical, FaTimes, FaDownload 
+  FaRobot, FaGripVertical, FaTimes, FaDownload 
 } from 'react-icons/fa';
 import { 
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
@@ -372,12 +371,6 @@ Produce the JSON spec now.
           </div>
 
           <div className="header-right">
-            <button className="icon-button" title="Notifications">
-              <FaBell />
-            </button>
-            <button className="icon-button" title="Settings">
-              <FaCog />
-            </button>
             <button 
               className={`ai-toggle-button ${aiSidePanelExpanded ? 'active' : ''}`}
               onClick={toggleAiPanel}
