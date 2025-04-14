@@ -1,24 +1,68 @@
-from app import app
-from flask import request
+from flask import Blueprint, request, jsonify
+import os
 import boto3
 from botocore.exceptions import ClientError
-import os
+from dotenv import load_dotenv
 
-# Load environment variables from .env file
+# Load environment variables
 load_dotenv()
 
-# Check for AWS SES credentials
-aws_access_key = os.environ.get("AWS_ACCESS_KEY_ID")
-aws_secret_key = os.environ.get("AWS_SECRET_ACCESS_KEY")
-aws_region = os.environ.get("AWS_SES_REGION")
-email_source = os.environ.get("EMAIL_SOURCE")
+email_bp = Blueprint('email', __name__)
 
-if not all([aws_access_key, aws_secret_key, aws_region, email_source]):
-    print("Warning: AWS SES credentials not found in environment variables")
-else:
-    print("AWS SES credentials loaded successfully.")
+@email_bp.route('/api/send-survey-email', methods=['POST'])
+def send_survey_email_handler():
+    """API endpoint to send survey emails to multiple recipients."""
+    if not request.json:
+        return jsonify({"status": "error", "message": "Missing request body"}), 400
+    
+    # Get the request data
+    emails = request.json.get('emails', [])
+    survey_id = request.json.get('survey_id')
+    survey_title = request.json.get('survey_title', "Survey Invitation")
+    survey_description = request.json.get('survey_description', "")
+    survey_link = request.json.get('survey_link')
+    
+    if not emails or not survey_id:
+        return jsonify({"status": "error", "message": "Missing required fields"}), 400
+    
+    results = []
+    success_count = 0
+    error_count = 0
+    
+    # Send emails to each recipient
+    for email in emails:
+        result = send_survey_email(email, survey_id, survey_title, survey_description, survey_link)
+        results.append(result)
+        
+        if result.get('status') == 'sent':
+            success_count += 1
+        else:
+            error_count += 1
+    
+    return jsonify({
+        "status": "complete",
+        "total": len(emails),
+        "success": success_count,
+        "error": error_count,
+        "results": results
+    })
 
-# Function to send survey email
+@email_bp.route('/api/test-send-survey-email', methods=['POST'])
+def test_send_survey_email():
+    """API endpoint to test sending a survey email."""
+    data = request.json
+    to_address = data.get('to_address')
+    survey_id = data.get('survey_id')
+    survey_title = data.get('survey_title', "Test Survey")
+    survey_description = data.get('survey_description', "This is a test survey")
+    survey_link = data.get('survey_link')
+
+    if not to_address or not survey_id:
+        return jsonify({"error": "Missing required fields"}), 400
+
+    response = send_survey_email(to_address, survey_id, survey_title, survey_description, survey_link)
+    return jsonify(response)
+
 def send_survey_email(to_address, survey_id, survey_title="Survey Invitation", survey_description="", survey_link=None):
     """
     Sends an email with a unique survey link to the recipient.
@@ -88,12 +132,3 @@ def send_survey_email(to_address, survey_id, survey_title="Survey Invitation", s
         return {"status": "error", "email": to_address, "message": str(e)}
     except Exception as e:
         return {"status": "error", "email": to_address, "message": f"Unexpected error: {str(e)}"}
-
-# Vercel serverless function handler
-def handler(request):
-    """Handle requests in Vercel serverless function"""
-    if request.method == "POST":
-        return app.handle_request(request)
-    elif request.method == "GET":
-        return app.handle_request(request)
-    return app.handle_request(request) 

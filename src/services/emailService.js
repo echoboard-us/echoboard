@@ -12,9 +12,9 @@ const getApiBaseUrl = () => {
     // Local development - use localhost with Flask port
     return 'http://localhost:5001';
   } else {
-    // Production environment - use the deployed API URL
-    // The Flask backend is likely running on the same domain in production
-    return 'https://www.echoboard.us';
+    // Production environment - use the same domain as the frontend
+    // Vercel will route /api/* requests to the backend
+    return window.location.origin;
   }
 };
 

@@ -8,11 +8,17 @@ from openai import OpenAI
 import boto3
 from botocore.exceptions import ClientError
 
+# Import blueprints
+from api.send_email import email_bp
+
 # Load environment variables from .env file
 load_dotenv()
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for frontend requests for only the /api/suggest endpoint
+
+# Register blueprints
+app.register_blueprint(email_bp)
 
 # Check for API key in environment variables.
 api_key = os.environ.get("OPENAI_API_KEY")
