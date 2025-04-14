@@ -23,34 +23,16 @@ const SignUp = () => {
         password,
         options: {
           data: {
-            full_name: fullName, // Optional: store full name in auth metadata
+            full_name: fullName, // Store full name in auth metadata
           },
+          emailRedirectTo: window.location.origin + '/signin' // Redirect to signin page after email confirmation
         },
       });
 
       if (authError) throw authError;
       if (!authData.user) throw new Error('Signup succeeded but no user data returned.');
 
-      // Step 2: Insert or update user details in the public.profiles table
-      const { error: insertError } = await supabase
-        .from('profiles')
-        .upsert({
-          id: authData.user.id,
-          full_name: fullName,
-          email: email,
-          updated_at: new Date().toISOString()
-        }, {
-          onConflict: 'id'
-        });
-
-      if (insertError) {
-        console.error('Error upserting user into public.profiles:', insertError);
-        setError(`Signup successful, but failed to save user profile: ${insertError.message}. Please contact support.`);
-        setLoading(false);
-        return;
-      }
-
-      // If signup and insert are successful
+      // Success - just show message and redirect
       alert('Signup successful! Please check your email to verify your account.');
       navigate('/signin'); // Redirect to signin page after signup
 
