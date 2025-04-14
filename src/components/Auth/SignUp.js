@@ -31,28 +31,23 @@ const SignUp = () => {
       if (authError) throw authError;
       if (!authData.user) throw new Error('Signup succeeded but no user data returned.');
 
-      // Step 2: Insert user details into the public.users table
-      // This is done client-side after successful auth signup.
-      // For more security, this could be moved to a Supabase Edge Function triggered by auth.users creation.
+      // Step 2: Insert or update user details in the public.profiles table
       const { error: insertError } = await supabase
-        .from('users')
-        .insert({
-          id: authData.user.id, // Use the UUID from auth user
+        .from('profiles')
+        .upsert({
+          id: authData.user.id,
           full_name: fullName,
           email: email,
-          role: 'member', // Default role
-          // created_at and updated_at should default via PostgreSQL triggers or default values
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'id'
         });
 
       if (insertError) {
-        // Optional: Consider how to handle this failure. 
-        // Maybe attempt to delete the auth user? Or just log the error?
-        console.error('Error inserting user into public.users:', insertError);
-        // Notify the user, they have an auth account but profile creation failed.
+        console.error('Error upserting user into public.profiles:', insertError);
         setError(`Signup successful, but failed to save user profile: ${insertError.message}. Please contact support.`);
-        // Don't navigate away, let them see the error.
         setLoading(false);
-        return; // Stop execution here
+        return;
       }
 
       // If signup and insert are successful

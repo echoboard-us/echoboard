@@ -10,6 +10,7 @@ import {
   FaClipboardList,
   FaChevronDown,
   FaExternalLinkAlt,
+  FaUserFriends,
 } from "react-icons/fa";
 import { supabase } from "../supabaseClient";
 import { useAuth } from "../context/AuthContext";
@@ -33,6 +34,8 @@ const Teams = () => {
   const [showSurveysDropdown, setShowSurveysDropdown] = useState({});
   const [teamSurveys, setTeamSurveys] = useState({});
   const [availableSurveys, setAvailableSurveys] = useState({});
+  const [showMembersModal, setShowMembersModal] = useState(false);
+  const [teamMembers, setTeamMembers] = useState([]);
 
   // Fetch teams and pending invitations
   useEffect(() => {
@@ -299,41 +302,79 @@ const Teams = () => {
       user.id
     );
     try {
-      // First, get the team info to ensure it exists
-      const { data: teamData, error: teamFetchError } = await supabase
-        .from("teams")
-        .select("id, name, description")
-        .eq("id", teamId)
+      // First verify the invitation exists and is pending
+      const { data: inviteCheck, error: inviteCheckError } = await supabase
+        .from("team_invitations")
+        .select(`
+          id,
+          team_id,
+          teams:team_id (
+            id,
+            name,
+            description
+          )
+        `)
+        .eq("id", inviteId)
+        .eq("invited_user", user.id)
+        .eq("status", "pending")
         .single();
 
-      console.log("Team data:", teamData, "Team fetch error:", teamFetchError);
+      console.log("DEBUG - Invitation check:", {
+        inviteCheck,
+        inviteCheckError
+      });
 
-      if (teamFetchError) {
-        console.error("Error fetching team:", teamFetchError);
-        setError("Failed to find team information: " + teamFetchError.message);
+      if (inviteCheckError) {
+        console.error("Error checking invitation:", inviteCheckError);
+        setError("Failed to verify invitation: " + inviteCheckError.message);
         return;
       }
 
-      if (!teamData) {
-        setError("Team not found. The team may have been deleted.");
+      if (!inviteCheck || !inviteCheck.teams) {
+        setError("Invalid invitation or team not found.");
+        return;
+      }
+
+      // Check if user is already a member of the team
+      const { data: existingMember, error: memberCheckError } = await supabase
+        .from("team_members")
+        .select("id")
+        .eq("team_id", teamId)
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      console.log("DEBUG - Member check:", {
+        existingMember,
+        memberCheckError
+      });
+
+      if (memberCheckError) {
+        console.error("Error checking existing membership:", memberCheckError);
+        setError("Failed to check team membership: " + memberCheckError.message);
+        return;
+      }
+
+      if (existingMember) {
+        setError("You are already a member of this team.");
         return;
       }
 
       // Update invitation status
       console.log("Updating invitation status to accepted");
-      const { data: inviteData, error: inviteError } = await supabase
+      const { error: inviteError } = await supabase
         .from("team_invitations")
         .update({ status: "accepted" })
-        .eq("id", inviteId)
-        .select();
+        .eq("id", inviteId);
 
-      console.log("Invitation update result:", { inviteData, inviteError });
-
-      if (inviteError) throw inviteError;
+      if (inviteError) {
+        console.error("Error updating invitation:", inviteError);
+        setError("Failed to update invitation: " + inviteError.message);
+        return;
+      }
 
       // Add user as team member
-      console.log("Adding user as team member to team:", teamData.name);
-      const { data: memberData, error: memberError } = await supabase
+      console.log("Adding user as team member to team:", inviteCheck.teams.name);
+      const { error: memberError } = await supabase
         .from("team_members")
         .insert([
           {
@@ -341,18 +382,22 @@ const Teams = () => {
             user_id: user.id,
             role: "member",
           },
-        ])
-        .select();
+        ]);
 
-      console.log("Team member insert result:", { memberData, memberError });
+      if (memberError) {
+        console.error("Error adding team member:", memberError);
+        setError("Failed to add you as team member: " + memberError.message);
+        return;
+      }
 
-      if (memberError) throw memberError;
-
-      // Refresh the lists
+      // Success! Refresh the lists and show success message
       console.log("Successfully accepted invitation, refreshing data");
-      fetchPendingInvites();
-      fetchTeams();
+      await fetchPendingInvites();
+      await fetchTeams();
       setShowNotifications(false);
+      setError(null);
+      alert(`Successfully joined team "${inviteCheck.teams.name}"`);
+
     } catch (error) {
       console.error("Error accepting invite:", error);
       setError("Failed to accept invitation: " + error.message);
@@ -717,6 +762,66 @@ const Teams = () => {
     navigate(`/surveys/${surveyId}`);
   };
 
+  const fetchTeamMembers = async (teamId) => {
+    try {
+      const { data: members, error: membersError } = await supabase
+        .from("team_members")
+        .select(`
+          user_id,
+          role,
+          profiles:user_id (
+            email,
+            full_name
+          )
+        `)
+        .eq("team_id", teamId);
+
+      if (membersError) {
+        console.error("Error fetching team members:", membersError);
+        throw membersError;
+      }
+
+      // Format the members data
+      const formattedMembers = members.map(m => ({
+        id: m.user_id,
+        email: m.profiles?.email,
+        full_name: m.profiles?.full_name,
+        role: m.role
+      }));
+
+      setTeamMembers(formattedMembers);
+    } catch (error) {
+      console.error("Error in fetchTeamMembers:", error);
+      setError("Failed to fetch team members: " + error.message);
+    }
+  };
+
+  const handleViewMembers = async (team) => {
+    setSelectedTeam(team);
+    await fetchTeamMembers(team.id);
+    setShowMembersModal(true);
+  };
+
+  const handleRemoveMember = async (memberId) => {
+    if (!selectedTeam) return;
+    
+    try {
+      const { error } = await supabase
+        .from("team_members")
+        .delete()
+        .eq("team_id", selectedTeam.id)
+        .eq("user_id", memberId);
+
+      if (error) throw error;
+
+      // Refresh the members list
+      await fetchTeamMembers(selectedTeam.id);
+    } catch (error) {
+      console.error("Error removing team member:", error);
+      setError("Failed to remove team member: " + error.message);
+    }
+  };
+
   return (
     <div className="teams-container">
       <div className="teams-header">
@@ -908,6 +1013,12 @@ const Teams = () => {
                       </div>
                     </>
                   )}
+                  <button
+                    className="view-members-btn"
+                    onClick={() => handleViewMembers(team)}
+                  >
+                    <FaUserFriends /> View Members
+                  </button>
                   {team.role === "owner" && (
                     <button
                       className="delete-team-btn"
@@ -1016,6 +1127,45 @@ const Teams = () => {
                 disabled={loading}
               >
                 Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Members Modal */}
+      {showMembersModal && selectedTeam && (
+        <div className="modal-overlay">
+          <div className="members-modal">
+            <h3>Team Members</h3>
+            {error && <div className="error-message">{error}</div>}
+            <div className="members-list">
+              {teamMembers.map((member) => (
+                <div key={member.id} className="member-item">
+                  <p>
+                    <strong>{member.email}</strong>
+                  </p>
+                  <p>Role: {member.role}</p>
+                  <div className="member-actions">
+                    <button
+                      className="remove-member-btn"
+                      onClick={() => handleRemoveMember(member.id)}
+                    >
+                      Remove Member
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="modal-actions">
+              <button
+                className="close-btn"
+                onClick={() => {
+                  setShowMembersModal(false);
+                  setSelectedTeam(null);
+                }}
+              >
+                Close
               </button>
             </div>
           </div>
