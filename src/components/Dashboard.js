@@ -23,6 +23,11 @@ const Dashboard = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [surveyFilter, setSurveyFilter] = useState('all'); // 'all', 'template', 'custom'
   const [dynamicPromptSuggestions, setDynamicPromptSuggestions] = useState([]); // State for dynamic suggestions
+  
+  // Date range picker state
+  const [startDate, setStartDate] = useState(new Date(new Date().setMonth(new Date().getMonth() - 6))); // Default to 6 months ago
+  const [endDate, setEndDate] = useState(new Date()); // Default to today
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   // --- OpenAI API Call Implementation --- 
   const callOpenAI = async (prompt) => {
@@ -290,24 +295,67 @@ Produce the JSON spec now.
   };
 
   const handleExportToPDF = () => {
-    const element = document.querySelector('.dashboard-container');
-    const opt = {
-      margin: 10,
-      filename: `${currentTeam.replace(/\s+/g, '_')}_Dashboard_${new Date().toISOString().split('T')[0]}.pdf`,
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2, useCORS: true },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
-    };
-    
-    // Remove the AI side panel temporarily for the PDF export
-    const aiPanel = document.querySelector('.ai-side-panel');
-    const originalDisplay = aiPanel.style.display;
-    aiPanel.style.display = 'none';
-    
-    html2pdf().set(opt).from(element).save().then(() => {
-      // Restore the AI side panel after PDF generation
-      aiPanel.style.display = originalDisplay;
-    });
+    try {
+      // Check if currentTeam is available
+      if (!currentTeam) {
+        alert("Please select a team first before exporting.");
+        return;
+      }
+
+      const element = document.querySelector('.dashboard-container');
+      if (!element) {
+        console.error("Dashboard container not found");
+        return;
+      }
+
+      // Create a filename based on team name
+      const teamName = typeof currentTeam === 'string' 
+        ? currentTeam 
+        : (currentTeam.name || 'Dashboard');
+      
+      const filename = `${teamName.replace(/\s+/g, '_')}_Dashboard_${new Date().toISOString().split('T')[0]}.pdf`;
+      
+      const opt = {
+        margin: 10,
+        filename: filename,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
+      };
+      
+      // Remove the AI side panel temporarily for the PDF export
+      const aiPanel = document.querySelector('.ai-side-panel');
+      let originalDisplay = 'block';
+      
+      if (aiPanel) {
+        originalDisplay = aiPanel.style.display || 'block';
+        aiPanel.style.display = 'none';
+      }
+      
+      console.log("Generating PDF...");
+      
+      html2pdf()
+        .set(opt)
+        .from(element)
+        .save()
+        .then(() => {
+          // Restore the AI side panel after PDF generation
+          if (aiPanel) {
+            aiPanel.style.display = originalDisplay;
+          }
+          console.log("PDF generated successfully");
+        })
+        .catch(error => {
+          console.error("Error generating PDF:", error);
+          if (aiPanel) {
+            aiPanel.style.display = originalDisplay;
+          }
+          alert("Failed to generate PDF. Please try again.");
+        });
+    } catch (error) {
+      console.error("Error in PDF export:", error);
+      alert("An error occurred while trying to export the PDF. Please try again.");
+    }
   };
 
   const handleTeamChange = (event) => {
@@ -320,6 +368,46 @@ Produce the JSON spec now.
     } else {
       console.error("Dashboard: Selected team not found in options", selectedTeamId);
     }
+  };
+
+  // Add a function to handle date range changes
+  const handleDateRangeChange = (newStartDate, newEndDate) => {
+    setStartDate(newStartDate);
+    setEndDate(newEndDate);
+    setShowDatePicker(false);
+    
+    // If a team is selected, you could refresh the dashboard data with the new date range
+    // This is optional and depends on your application's requirements
+    console.log(`Date range changed: ${newStartDate.toLocaleDateString()} - ${newEndDate.toLocaleDateString()}`);
+  };
+
+  // Add a function to set predefined date ranges
+  const setDateRange = (range) => {
+    const end = new Date();
+    let start = new Date();
+    
+    switch(range) {
+      case 'last7days':
+        start.setDate(end.getDate() - 7);
+        break;
+      case 'last30days':
+        start.setDate(end.getDate() - 30);
+        break;
+      case 'last3months':
+        start.setMonth(end.getMonth() - 3);
+        break;
+      case 'last6months':
+        start.setMonth(end.getMonth() - 6);
+        break;
+      case 'lastyear':
+        start.setFullYear(end.getFullYear() - 1);
+        break;
+      default:
+        // Default to last 6 months
+        start.setMonth(end.getMonth() - 6);
+    }
+    
+    handleDateRangeChange(start, end);
   };
 
   return (
@@ -354,8 +442,69 @@ Produce the JSON spec now.
 
           <div className="header-filters">
             <div className="date-range-picker">
-              <FaCalendar />
-              <span>2022-05-31 - 2022-11-16</span>
+              <div className="date-display" onClick={() => setShowDatePicker(!showDatePicker)}>
+                <FaCalendar />
+                <span>{startDate.toLocaleDateString()} - {endDate.toLocaleDateString()}</span>
+              </div>
+              
+              {showDatePicker && (
+                <div className="date-picker-dropdown">
+                  <div className="date-picker-header">
+                    <h4>Select Date Range</h4>
+                    <button onClick={() => setShowDatePicker(false)} className="close-btn">×</button>
+                  </div>
+                  
+                  <div className="date-inputs">
+                    <div className="date-input">
+                      <label>Start Date:</label>
+                      <input 
+                        type="date" 
+                        value={startDate.toISOString().split('T')[0]}
+                        onChange={(e) => {
+                          const newDate = new Date(e.target.value);
+                          if (!isNaN(newDate.getTime())) {
+                            setStartDate(newDate);
+                          }
+                        }}
+                        max={endDate.toISOString().split('T')[0]}
+                      />
+                    </div>
+                    
+                    <div className="date-input">
+                      <label>End Date:</label>
+                      <input 
+                        type="date" 
+                        value={endDate.toISOString().split('T')[0]}
+                        onChange={(e) => {
+                          const newDate = new Date(e.target.value);
+                          if (!isNaN(newDate.getTime())) {
+                            setEndDate(newDate);
+                          }
+                        }}
+                        min={startDate.toISOString().split('T')[0]}
+                        max={new Date().toISOString().split('T')[0]}
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="preset-ranges">
+                    <button onClick={() => setDateRange('last7days')}>Last 7 Days</button>
+                    <button onClick={() => setDateRange('last30days')}>Last 30 Days</button>
+                    <button onClick={() => setDateRange('last3months')}>Last 3 Months</button>
+                    <button onClick={() => setDateRange('last6months')}>Last 6 Months</button>
+                    <button onClick={() => setDateRange('lastyear')}>Last Year</button>
+                  </div>
+                  
+                  <div className="date-picker-actions">
+                    <button 
+                      className="apply-btn"
+                      onClick={() => handleDateRangeChange(startDate, endDate)}
+                    >
+                      Apply
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
             <div className="segment-selector">
               <select 
