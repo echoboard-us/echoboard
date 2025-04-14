@@ -97,3 +97,6 @@ def handler(request):
     elif request.method == "GET":
         return app.handle_request(request)
     return app.handle_request(request) 
+
+    # deploy with vercel
+    # vercel --prod
