@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { supabase } from '../../supabaseClient'; // Adjust the path as needed
+import { supabase, supabaseAdmin } from '../../supabaseClient';
 import './Auth.css';
 
 const SignUp = () => {
@@ -10,6 +10,15 @@ const SignUp = () => {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Get the site URL based on environment
+  const getSiteURL = () => {
+    if (process.env.REACT_APP_SITE_URL) {
+      return process.env.REACT_APP_SITE_URL;
+    }
+    // Fallback to window.location.origin for development
+    return window.location.origin;
+  };
 
   const handleSignUp = async (e) => {
     e.preventDefault();
@@ -23,26 +32,50 @@ const SignUp = () => {
         password,
         options: {
           data: {
-            full_name: fullName, // Store full name in auth metadata
+            full_name: fullName,
           },
-          emailRedirectTo: window.location.origin + '/signin' // Redirect to signin page after email confirmation
+          emailRedirectTo: `${getSiteURL()}/signin`,
         },
       });
 
       if (authError) throw authError;
       if (!authData.user) throw new Error('Signup succeeded but no user data returned.');
 
-      // Success - just show message and redirect
+      // Step 2: Create the profile using the admin client
+      if (!supabaseAdmin) {
+        console.error('Service role client not configured');
+        setError('Unable to create user profile. Please contact support.');
+        setLoading(false);
+        return;
+      }
+
+      const { error: insertError } = await supabaseAdmin
+        .from('profiles')
+        .insert({
+          id: authData.user.id,
+          full_name: fullName,
+          email: email,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        });
+
+      if (insertError) {
+        console.error('Error creating user profile:', insertError);
+        setError(`Signup successful, but failed to save user profile: ${insertError.message}. Please contact support.`);
+        setLoading(false);
+        return;
+      }
+
+      // Success - show message and redirect
       alert('Signup successful! Please check your email to verify your account.');
-      navigate('/signin'); // Redirect to signin page after signup
+      navigate('/signin');
 
     } catch (error) {
       console.error('Signup Error:', error);
       setError(error.message || 'An unexpected error occurred during sign up.');
     } finally {
-      // Only set loading to false if we haven't already in the insertError block
       if (loading) {
-          setLoading(false);
+        setLoading(false);
       }
     }
   };
