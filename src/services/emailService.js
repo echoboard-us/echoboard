@@ -175,23 +175,10 @@ export const sendSurveyToTeam = async (teamId, surveyId) => {
       // use the simulation function as a fallback
       result = await simulateSendEmails(emails, surveyLink, survey.title);
       
-      // Store a record in Supabase that the survey was "sent"
-      try {
-        const { error: logError } = await supabase
-          .from('survey_send_logs')
-          .insert({
-            team_id: teamId,
-            survey_id: surveyId,
-            emails_sent: emails.length,
-            survey_link: surveyLink
-          });
-          
-        if (logError) {
-          console.warn('Failed to log survey send:', logError);
-        }
-      } catch (logError) {
-        console.warn('Error logging survey send:', logError);
-      }
+      // Log to console that this was a simulated send in production
+      console.log('Production environment: Email sending was simulated');
+      console.log(`Team ID: ${teamId}, Survey ID: ${surveyId}`);
+      console.log(`Emails: ${emails.length}, Link: ${surveyLink}`);
     }
     
     return { 
