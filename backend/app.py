@@ -19,7 +19,7 @@ api_key = os.environ.get("OPENAI_API_KEY")
 if not api_key:
     print("Warning: OPENAI_API_KEY not found in environment variables")
 
-# Initialize OpenAI client for GPT-4
+# Initialize OpenAI client for GPT-4 while using the latest model
 try:
     client = OpenAI(api_key=api_key)
     print("OpenAI client initialized successfully.")
