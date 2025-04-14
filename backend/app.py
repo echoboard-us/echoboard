@@ -14,7 +14,7 @@ load_dotenv()
 app = Flask(__name__)
 CORS(app)  # Enable CORS for frontend requests for only the /api/suggest endpoint
 
-# Check for API key
+# Check for API key in environment variables
 api_key = os.environ.get("OPENAI_API_KEY")
 if not api_key:
     print("Warning: OPENAI_API_KEY not found in environment variables")
