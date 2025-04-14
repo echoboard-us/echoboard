@@ -49,43 +49,46 @@ const Teams = () => {
     try {
       console.log("Fetching teams for user:", user.id);
 
-      // Fetch teams where user is a member
+      // Fetch teams where user is a member with better join syntax
       const { data: memberTeams, error: memberError } = await supabase
         .from("team_members")
-        .select(
-          `
+        .select(`
           team_id,
           role,
-          teams:team_id (
+          teams!inner (
             id,
             name,
-            description
+            description,
+            created_at
           )
-        `
-        )
+        `)
         .eq("user_id", user.id);
+
+      console.log("DEBUG - Teams fetch:", {
+        userId: user.id,
+        rawData: memberTeams,
+        error: memberError
+      });
 
       if (memberError) {
         console.error("Error fetching member teams:", memberError);
         throw memberError;
       }
 
-      console.log("Raw teams data:", memberTeams);
+      // Map the data to the expected format
+      const formattedTeams = memberTeams.map((mt) => ({
+        id: mt.teams.id,
+        name: mt.teams.name || "Unnamed Team",
+        description: mt.teams.description || "",
+        role: mt.role || "member",
+        created_at: mt.teams.created_at
+      }));
 
-      // Filter out entries with null teams and map to the expected format
-      const formattedTeams = memberTeams
-        .filter((mt) => mt.teams !== null)
-        .map((mt) => ({
-          id: mt.team_id, // Use team_id directly as fallback
-          name: mt.teams?.name || "Unnamed Team",
-          description: mt.teams?.description || "",
-          role: mt.role || "member",
-        }));
-
-      console.log("Formatted teams:", formattedTeams);
+      console.log("DEBUG - Formatted teams:", formattedTeams);
       setTeams(formattedTeams);
     } catch (error) {
       console.error("Error fetching teams:", error);
+      setError("Failed to fetch teams: " + error.message);
     } finally {
       setLoading(false);
     }
@@ -308,7 +311,9 @@ const Teams = () => {
         .select(`
           id,
           team_id,
-          teams:team_id (
+          status,
+          invited_user,
+          teams!inner (
             id,
             name,
             description
@@ -316,22 +321,28 @@ const Teams = () => {
         `)
         .eq("id", inviteId)
         .eq("invited_user", user.id)
-        .eq("status", "pending")
         .single();
 
-      console.log("DEBUG - Invitation check:", {
+      console.log("DEBUG - Full invitation check:", {
+        inviteId,
+        teamId,
+        userId: user.id,
         inviteCheck,
         inviteCheckError
       });
 
       if (inviteCheckError) {
         console.error("Error checking invitation:", inviteCheckError);
-        setError("Failed to verify invitation: " + inviteCheckError.message);
+        if (inviteCheckError.code === 'PGRST116') {
+          setError("Invitation not found. It may have been deleted or already processed.");
+        } else {
+          setError("Failed to verify invitation: " + inviteCheckError.message);
+        }
         return;
       }
 
-      if (!inviteCheck || !inviteCheck.teams) {
-        setError("Invalid invitation or team not found.");
+      if (inviteCheck.status !== 'pending') {
+        setError("This invitation has already been " + inviteCheck.status);
         return;
       }
 
@@ -339,13 +350,15 @@ const Teams = () => {
       const { data: existingMember, error: memberCheckError } = await supabase
         .from("team_members")
         .select("id")
-        .eq("team_id", teamId)
+        .eq("team_id", inviteCheck.team_id)
         .eq("user_id", user.id)
         .maybeSingle();
 
       console.log("DEBUG - Member check:", {
         existingMember,
-        memberCheckError
+        memberCheckError,
+        teamId: inviteCheck.team_id,
+        userId: user.id
       });
 
       if (memberCheckError) {
@@ -359,26 +372,13 @@ const Teams = () => {
         return;
       }
 
-      // Update invitation status
-      console.log("Updating invitation status to accepted");
-      const { error: inviteError } = await supabase
-        .from("team_invitations")
-        .update({ status: "accepted" })
-        .eq("id", inviteId);
-
-      if (inviteError) {
-        console.error("Error updating invitation:", inviteError);
-        setError("Failed to update invitation: " + inviteError.message);
-        return;
-      }
-
-      // Add user as team member
+      // Add user as team member first
       console.log("Adding user as team member to team:", inviteCheck.teams.name);
       const { error: memberError } = await supabase
         .from("team_members")
         .insert([
           {
-            team_id: teamId,
+            team_id: inviteCheck.team_id,
             user_id: user.id,
             role: "member",
           },
@@ -390,10 +390,28 @@ const Teams = () => {
         return;
       }
 
+      // Then update invitation status
+      console.log("Updating invitation status to accepted");
+      const { error: inviteError } = await supabase
+        .from("team_invitations")
+        .update({ status: "accepted" })
+        .eq("id", inviteId);
+
+      if (inviteError) {
+        console.error("Error updating invitation:", inviteError);
+        // Try to remove the team member since invitation update failed
+        await supabase
+          .from("team_members")
+          .delete()
+          .eq("team_id", inviteCheck.team_id)
+          .eq("user_id", user.id);
+        setError("Failed to update invitation: " + inviteError.message);
+        return;
+      }
+
       // Success! Refresh the lists and show success message
       console.log("Successfully accepted invitation, refreshing data");
-      await fetchPendingInvites();
-      await fetchTeams();
+      await Promise.all([fetchTeams(), fetchPendingInvites()]);
       setShowNotifications(false);
       setError(null);
       alert(`Successfully joined team "${inviteCheck.teams.name}"`);
@@ -420,6 +438,10 @@ const Teams = () => {
   };
 
   const handleDeleteClick = (team) => {
+    if (team.role !== "owner") {
+      setError("Only team owners can delete teams.");
+      return;
+    }
     setSelectedTeam(team);
     setShowDeleteConfirmModal(true);
   };
@@ -431,7 +453,37 @@ const Teams = () => {
       setLoading(true);
       console.log("Deleting team:", selectedTeam.id);
 
-      // First delete team members
+      // First verify user is the owner
+      const { data: teamMember, error: roleCheckError } = await supabase
+        .from("team_members")
+        .select("role")
+        .eq("team_id", selectedTeam.id)
+        .eq("user_id", user.id)
+        .single();
+
+      if (roleCheckError) {
+        console.error("Error checking role:", roleCheckError);
+        setError("Failed to verify team ownership: " + roleCheckError.message);
+        return;
+      }
+
+      if (!teamMember || teamMember.role !== "owner") {
+        setError("Only team owners can delete teams.");
+        return;
+      }
+
+      // Delete team surveys first
+      const { error: surveysError } = await supabase
+        .from("team_surveys")
+        .delete()
+        .eq("team_id", selectedTeam.id);
+
+      if (surveysError) {
+        console.error("Error deleting team surveys:", surveysError);
+        throw surveysError;
+      }
+
+      // Delete team members
       const { error: membersError } = await supabase
         .from("team_members")
         .delete()
@@ -442,7 +494,7 @@ const Teams = () => {
         throw membersError;
       }
 
-      // Then delete any pending invitations
+      // Delete any pending invitations
       const { error: invitationsError } = await supabase
         .from("team_invitations")
         .delete()
@@ -470,6 +522,8 @@ const Teams = () => {
       setTeams(teams.filter((team) => team.id !== selectedTeam.id));
       setShowDeleteConfirmModal(false);
       setSelectedTeam(null);
+      setError(null);
+      alert("Team deleted successfully");
     } catch (error) {
       console.error("Error in handleDeleteTeam:", error);
       setError("Failed to delete team: " + error.message);
@@ -901,6 +955,17 @@ const Teams = () => {
         ) : (
           teams.map((team) => (
             <div key={team.id} className="team-card">
+              <div className="team-card-header">
+                {team.role === "owner" && (
+                  <button
+                    className="delete-team-icon-btn"
+                    onClick={() => handleDeleteClick(team)}
+                    title="Delete Team"
+                  >
+                    <FaTrash />
+                  </button>
+                )}
+              </div>
               <div className="team-info">
                 <h3>{team.name || "Unnamed Team"}</h3>
                 <p className="team-id-display">ID: {team.id}</p>
@@ -1019,14 +1084,6 @@ const Teams = () => {
                   >
                     <FaUserFriends /> View Members
                   </button>
-                  {team.role === "owner" && (
-                    <button
-                      className="delete-team-btn"
-                      onClick={() => handleDeleteClick(team)}
-                    >
-                      <FaTrash /> Delete Team
-                    </button>
-                  )}
                 </div>
               </div>
             </div>
@@ -1103,12 +1160,17 @@ const Teams = () => {
           <div className="delete-modal-content">
             <h3>Delete Team</h3>
             <p className="delete-confirmation-message">
-              Are you sure you want to delete the team "
-              {selectedTeam.name || "Unnamed Team"}"? This action cannot be
-              undone.
+              Are you sure you want to delete the team "{selectedTeam.name || "Unnamed Team"}"? 
+              This action cannot be undone.
             </p>
             <p className="delete-warning">
-              This will remove all team members and pending invitations.
+              This will permanently delete:
+              <ul>
+                <li>All team members and their associations</li>
+                <li>All pending team invitations</li>
+                <li>All team surveys and their data</li>
+                <li>All team settings and configurations</li>
+              </ul>
             </p>
             <div className="modal-actions">
               <button
@@ -1116,13 +1178,14 @@ const Teams = () => {
                 onClick={handleDeleteTeam}
                 disabled={loading}
               >
-                {loading ? "Deleting..." : "Delete Team"}
+                {loading ? "Deleting..." : "Yes, Delete Team"}
               </button>
               <button
                 className="cancel-btn"
                 onClick={() => {
                   setShowDeleteConfirmModal(false);
                   setSelectedTeam(null);
+                  setError(null);
                 }}
                 disabled={loading}
               >

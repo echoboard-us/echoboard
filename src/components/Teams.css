@@ -183,11 +183,49 @@
   margin-bottom: 20px;
   border: 1px solid var(--border-color);
   transition: transform 0.2s, box-shadow 0.2s;
+  position: relative;
 }
 
 .team-card:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.team-card-header {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 1;
+}
+
+.delete-team-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: 50%;
+  color: var(--danger-color);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  opacity: 0.7;
+}
+
+.delete-team-icon-btn:hover {
+  opacity: 1;
+  transform: scale(1.1);
+  background-color: var(--danger-color-light);
+}
+
+.delete-team-icon-btn:active {
+  transform: scale(0.95);
+}
+
+.team-info {
+  padding-right: 40px; /* Make space for the delete button */
 }
 
 .team-header {
@@ -330,11 +368,10 @@
   gap: 10px;
   margin-top: 15px;
   flex-wrap: wrap;
-  position: relative;
+  align-items: center;
 }
 
 .invite-member-btn,
-.delete-team-btn,
 .manage-surveys-btn {
   display: flex;
   align-items: center;
@@ -358,21 +395,53 @@
 }
 
 .delete-team-btn {
-  background-color: var(--error-color);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background-color: var(--danger-color, #dc3545);
   color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s ease;
+}
+
+.delete-team-btn:hover {
+  background-color: var(--danger-color-dark, #bd2130);
+  transform: translateY(-1px);
+}
+
+.delete-team-btn:active {
+  transform: translateY(0);
+}
+
+.delete-team-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
 }
 
 .invite-member-btn:hover,
-.manage-surveys-btn:hover,
-.delete-team-btn:hover {
+.manage-surveys-btn:hover {
   opacity: 0.9;
   transform: translateY(-1px);
 }
 
 .invite-member-btn:active,
-.manage-surveys-btn:active,
-.delete-team-btn:active {
+.manage-surveys-btn:active {
   transform: translateY(0);
+}
+
+/* Style for the delete confirmation modal */
+.delete-modal-content {
+  background-color: var(--bg-primary);
+  padding: 2rem;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 500px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
 .delete-confirmation-message {
@@ -382,12 +451,23 @@
 }
 
 .delete-warning {
-  margin-bottom: 1.5rem;
+  margin: 1.5rem 0;
   color: var(--danger-color);
   font-size: 0.9rem;
-  padding: 0.75rem;
-  background-color: var(--danger-color-light);
+  padding: 1rem;
+  background-color: var(--danger-color-light, rgba(220, 53, 69, 0.1));
   border-radius: 6px;
+  border-left: 4px solid var(--danger-color);
+}
+
+.delete-warning ul {
+  margin: 0.5rem 0 0 1.5rem;
+  padding: 0;
+}
+
+.delete-warning li {
+  margin: 0.25rem 0;
+  color: var(--text-primary);
 }
 
 .delete-confirm-btn {
@@ -398,14 +478,14 @@
   border: none;
   cursor: pointer;
   transition: background-color 0.2s;
+  font-weight: 500;
 }
 
 .delete-confirm-btn:hover {
   background-color: var(--danger-color-dark);
 }
 
-.delete-confirm-btn:disabled,
-.cancel-btn:disabled {
+.delete-confirm-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
