@@ -1,16 +1,26 @@
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useLocation } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { getRatingScale } from '../utils/surveyUtils';
 import './SurveyResponse.css';
 
 const SurveyResponse = () => {
   const { surveyId } = useParams();
+  const location = useLocation();
   const [survey, setSurvey] = useState(null);
   const [responses, setResponses] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [submitted, setSubmitted] = useState(false);
+  const [token, setToken] = useState(null);
+
+  // Extract token from URL query parameters
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const t = params.get('token');  // expects URL like ?token=abc123
+    console.log('Token extracted from URL:', t);
+    setToken(t);
+  }, [location.search]);
 
   useEffect(() => {
     const fetchSurvey = async () => {
@@ -52,7 +62,7 @@ const SurveyResponse = () => {
     };
 
     fetchSurvey();
-  }, [surveyId]);
+  }, [surveyId, location.search]);
 
   const handleInputChange = (questionId, value, type = 'text') => {
     setResponses(prev => ({
@@ -86,18 +96,30 @@ const SurveyResponse = () => {
     try {
       validateResponses();
 
+      // Log the data being sent to verify token
+      console.log({
+        survey_id: surveyId,
+        submitted_at: new Date().toISOString(),
+        token,
+        responder_id: null,
+      });
+
       // Insert the response record
       const { data: responseData, error: responseError } = await supabase
         .from('responses')
         .insert([{
           survey_id: surveyId,
-          submitted_at: new Date().toISOString()
-          // source field removed as it doesn't exist in the schema
+          submitted_at: new Date().toISOString(),
+          token,             // Include the share link token
+          responder_id: null // null for anonymous responses via share link
         }])
         .select()
         .single();
 
-      if (responseError) throw responseError;
+      if (responseError) {
+        console.error('Error submitting response:', responseError);
+        throw responseError;
+      }
 
       // Insert all answers
       const answersToInsert = Object.entries(responses).map(([questionId, value]) => ({

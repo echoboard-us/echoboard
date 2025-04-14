@@ -41,6 +41,9 @@ const Survey = () => {
   const [aiSuggestions, setAiSuggestions] = useState(null);
   const [showShareModal, setShowShareModal] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
+  const [shareToken, setShareToken] = useState('');
+  const [shareTokenExpiry, setShareTokenExpiry] = useState(null);
+  const [shareTokenLoading, setShareTokenLoading] = useState(false);
   const [showAiInput, setShowAiInput] = useState(null); // Changed to null to track which question is being edited
   
   // New state variables for templates
@@ -583,6 +586,46 @@ const Survey = () => {
     setShowCreateForm(true);
   }, [prepareQuestionsForEdit]);
 
+  // Function to generate a share token and save it to survey_share_links
+  const generateShareToken = useCallback(async (surveyId) => {
+    setShareTokenLoading(true);
+    try {
+      // Generate a random token
+      const tokenBytes = new Uint8Array(16);
+      window.crypto.getRandomValues(tokenBytes);
+      const token = Array.from(tokenBytes)
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('');
+      
+      // Set expiry date (30 days from now)
+      const expiryDate = new Date();
+      expiryDate.setDate(expiryDate.getDate() + 30);
+      
+      // Save to survey_share_links table
+      const { data: tokenData, error } = await supabase
+        .from('survey_share_links')
+        .insert([{
+          survey_id: surveyId,
+          token: token,
+          expires_at: expiryDate.toISOString()
+        }])
+        .select()
+        .single();
+      
+      if (error) throw error;
+      
+      setShareToken(token);
+      setShareTokenExpiry(expiryDate);
+      return token;
+    } catch (error) {
+      console.error('Error generating share token:', error);
+      alert('Failed to generate share link. Please try again.');
+      return null;
+    } finally {
+      setShareTokenLoading(false);
+    }
+  }, []);
+
   const ViewSurveyModal = useCallback(({ survey, onClose }) => {
     if (!survey) return null;
 
@@ -652,7 +695,17 @@ const Survey = () => {
             </div>
 
             <div className="survey-actions">
-              <button className="share-btn" onClick={() => setShowShareModal(true)}>
+              <button 
+                className="share-btn"
+                onClick={async () => {
+                  setShowShareModal(true);
+                  // Generate token when share button is clicked
+                  if (!shareToken) {
+                    const token = await generateShareToken(survey.id);
+                    setShareToken(token);
+                  }
+                }}
+              >
                 <FaShare /> Share Survey
               </button>
             </div>
@@ -667,19 +720,27 @@ const Survey = () => {
                       type="text" 
                       value={`${process.env.NODE_ENV === 'development' 
                         ? 'http://localhost:3000' 
-                        : window.location.origin}/survey/${survey.id}`}
+                        : window.location.origin}/survey/${survey.id}?token=${shareToken}`}
                       readOnly
                     />
                     <button onClick={() => {
                       navigator.clipboard.writeText(`${process.env.NODE_ENV === 'development' 
                         ? 'http://localhost:3000' 
-                        : window.location.origin}/survey/${survey.id}`);
+                        : window.location.origin}/survey/${survey.id}?token=${shareToken}`);
                       setCopySuccess(true);
                       setTimeout(() => setCopySuccess(false), 2000);
                     }}>
                       {copySuccess ? 'Copied!' : <FaCopy />}
                     </button>
                   </div>
+                  {shareTokenExpiry && (
+                    <p className="share-expiry">
+                      This link will expire on {new Date(shareTokenExpiry).toLocaleDateString()}
+                    </p>
+                  )}
+                  {shareTokenLoading && (
+                    <p className="share-loading">Generating secure link...</p>
+                  )}
                   <button className="close-share-btn" onClick={() => setShowShareModal(false)}>
                     Close
                   </button>
@@ -690,7 +751,116 @@ const Survey = () => {
         </div>
       </div>
     );
-  }, [handleStatusChange, showShareModal, copySuccess]);
+  }, [handleStatusChange, showShareModal, copySuccess, shareToken, shareTokenExpiry, shareTokenLoading, generateShareToken]);
+
+  // Template Modal Component
+  const TemplateModal = useCallback(() => {
+    return (
+      <div className="modal-overlay">
+        <div className="template-modal">
+          <div className="modal-header">
+            <h2>Select a Survey Template</h2>
+            <button className="close-modal-btn" onClick={() => setShowTemplateModal(false)}>×</button>
+          </div>
+          
+          <div className="modal-content">
+            <div className="templates-grid">
+              {templates.map((template) => (
+                <div key={template.id} className="template-card">
+                  <div className="template-header">
+                    {template.type && (
+                      <span className="template-type-badge">{template.type}</span>
+                    )}
+                    <h3>{template.title}</h3>
+                  </div>
+                  <p>{template.description}</p>
+                  <div className="template-actions">
+                    <button 
+                      className="preview-template-btn"
+                      onClick={() => handleViewTemplate(template.id)}
+                    >
+                      Preview
+                    </button>
+                    <button 
+                      className="use-template-btn"
+                      onClick={() => handleTemplateSelect(template.id)}
+                    >
+                      Use This Template
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }, [templates, handleViewTemplate, handleTemplateSelect]);
+
+  // Template Preview Modal Component
+  const TemplatePreviewModal = useCallback(({ template, onClose }) => {
+    if (!template) return null;
+
+    return (
+      <div className="modal-overlay">
+        <div className="view-survey-modal">
+          <div className="modal-header">
+            <h2>{template.title}</h2>
+            <button className="close-modal-btn" onClick={onClose}>×</button>
+          </div>
+          
+          <div className="modal-content">
+            <div className="survey-info">
+              <p className="survey-description">{template.description}</p>
+            </div>
+
+            <div className="survey-questions">
+              <h3>Questions</h3>
+              {template.questions && template.questions.map((question, index) => (
+                <div key={index} className="survey-question">
+                  <div className="question-number">Q{index + 1}</div>
+                  <div className="question-content">
+                    <p className="question-text">{question.question}</p>
+                    
+                    {/* Display options based on question type */}
+                    {(question.type === 'multiple_choice' || question.type === 'checkbox' || question.type === 'dropdown') && question.choices && (
+                      <div className="question-options">
+                        {question.choices.map((option, optionIndex) => (
+                          <div key={optionIndex} className="option">
+                            {question.type === 'checkbox' ? '☐' : '○'} {option}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {question.type === 'rating' && (
+                      <div className="rating-preview">
+                        {Array.from({length: getRatingScale(question.question)}).map((_, num) => (
+                          <span key={num} className="rating-star">★</span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="template-actions">
+              <button 
+                className="use-template-btn"
+                onClick={() => {
+                  handleTemplateSelect(template.id);
+                  onClose();
+                }}
+              >
+                Use This Template
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }, [handleTemplateSelect]);
 
   const renderQuestionForm = useCallback((question, index, survey = newSurvey) => (
     <div key={index} className="question-item">
@@ -860,115 +1030,6 @@ const Survey = () => {
       )}
     </div>
   ), [newSurvey, editingSurvey, showAiInput, aiQuery, aiSuggestions, loading, handleAiQuery, updateQuestion, updateOption, removeOption, addOption, applySuggestion]);
-
-  // Template Modal Component
-  const TemplateModal = useCallback(() => {
-    return (
-      <div className="modal-overlay">
-        <div className="template-modal">
-          <div className="modal-header">
-            <h2>Select a Survey Template</h2>
-            <button className="close-modal-btn" onClick={() => setShowTemplateModal(false)}>×</button>
-          </div>
-          
-          <div className="modal-content">
-            <div className="templates-grid">
-              {templates.map((template) => (
-                <div key={template.id} className="template-card">
-                  <div className="template-header">
-                    {template.type && (
-                      <span className="template-type-badge">{template.type}</span>
-                    )}
-                    <h3>{template.title}</h3>
-                  </div>
-                  <p>{template.description}</p>
-                  <div className="template-actions">
-                    <button 
-                      className="preview-template-btn"
-                      onClick={() => handleViewTemplate(template.id)}
-                    >
-                      Preview
-                    </button>
-                    <button 
-                      className="use-template-btn"
-                      onClick={() => handleTemplateSelect(template.id)}
-                    >
-                      Use This Template
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }, [templates, handleViewTemplate, handleTemplateSelect]);
-
-  // Template Preview Modal Component
-  const TemplatePreviewModal = useCallback(({ template, onClose }) => {
-    if (!template) return null;
-
-    return (
-      <div className="modal-overlay">
-        <div className="view-survey-modal">
-          <div className="modal-header">
-            <h2>{template.title}</h2>
-            <button className="close-modal-btn" onClick={onClose}>×</button>
-          </div>
-          
-          <div className="modal-content">
-            <div className="survey-info">
-              <p className="survey-description">{template.description}</p>
-            </div>
-
-            <div className="survey-questions">
-              <h3>Questions</h3>
-              {template.questions && template.questions.map((question, index) => (
-                <div key={index} className="survey-question">
-                  <div className="question-number">Q{index + 1}</div>
-                  <div className="question-content">
-                    <p className="question-text">{question.question}</p>
-                    
-                    {/* Display options based on question type */}
-                    {(question.type === 'multiple_choice' || question.type === 'checkbox' || question.type === 'dropdown') && question.choices && (
-                      <div className="question-options">
-                        {question.choices.map((option, optionIndex) => (
-                          <div key={optionIndex} className="option">
-                            {question.type === 'checkbox' ? '☐' : '○'} {option}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    
-                    {question.type === 'rating' && (
-                      <div className="rating-preview">
-                        {Array.from({length: getRatingScale(question.question)}).map((_, num) => (
-                          <span key={num} className="rating-star">★</span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="template-actions">
-              <button 
-                className="use-template-btn"
-                onClick={() => {
-                  handleTemplateSelect(template.id);
-                  onClose();
-                }}
-              >
-                Use This Template
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }, [handleTemplateSelect]);
 
   return (
     <div className="survey-container">
