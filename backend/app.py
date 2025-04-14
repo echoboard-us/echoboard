@@ -10,7 +10,7 @@ from openai import OpenAI
 load_dotenv()
 
 app = Flask(__name__)
-CORS(app)  # Enable CORS for frontend requests
+CORS(app)  # Enable CORS for frontend requests for only the /api/suggest endpoint
 
 # Check for API key
 api_key = os.environ.get("OPENAI_API_KEY")
