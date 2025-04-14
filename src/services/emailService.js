@@ -1,6 +1,41 @@
 import { supabase } from '../supabaseClient';
 
 /**
+ * Determines the appropriate API base URL based on the environment
+ * @returns {string} The API base URL
+ */
+const getApiBaseUrl = () => {
+  // Check if we're in development or production
+  const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  
+  if (isLocalDev) {
+    // Local development - use localhost with Flask port
+    return 'http://localhost:5001';
+  } else {
+    // Production environment - use the deployed API URL
+    // The Flask backend is likely running on the same domain in production
+    return 'https://www.echoboard.us';
+  }
+};
+
+/**
+ * Gets the appropriate site URL based on the environment
+ * @returns {string} The site URL
+ */
+const getSiteUrl = () => {
+  // Check if we're in development or production
+  const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  
+  if (isLocalDev) {
+    // Use the environment variable for local development
+    return process.env.REACT_APP_SITE_URL || window.location.origin;
+  } else {
+    // In production, always use www.echoboard.us
+    return 'https://www.echoboard.us';
+  }
+};
+
+/**
  * Sends a survey to all members of a team
  * @param {string} teamId - The ID of the team
  * @param {string} surveyId - The ID of the survey to send
@@ -55,21 +90,26 @@ export const sendSurveyToTeam = async (teamId, surveyId) => {
       // Continue with default link if there's an error
     }
     
+    // Get the site URL based on environment
+    const siteUrl = getSiteUrl();
+    
     // Build the survey link using the token or use a fallback
     let surveyLink;
     if (shareLinks && shareLinks.length > 0 && shareLinks[0].token) {
       // Use the correct format: /survey/{survey_id}?token={token}
-      const baseUrl = window.location.origin;
-      surveyLink = `${baseUrl}/survey/${surveyId}?token=${shareLinks[0].token}`;
+      surveyLink = `${siteUrl}/survey/${surveyId}?token=${shareLinks[0].token}`;
     } else {
       // Fallback to a direct survey link
-      surveyLink = `${window.location.origin}/survey/${surveyId}`;
+      surveyLink = `${siteUrl}/survey/${surveyId}`;
     }
     
     console.log('Using survey link:', surveyLink);
     
-    // 5. Call the backend API to send emails (use direct Flask server URL)
-    const response = await fetch('http://localhost:5001/api/send-survey-email', {
+    // Get the API base URL based on environment
+    const apiBaseUrl = getApiBaseUrl();
+    
+    // 5. Call the backend API to send emails
+    const response = await fetch(`${apiBaseUrl}/api/send-survey-email`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
