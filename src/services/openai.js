@@ -139,6 +139,73 @@ Schema:
   }
 };
 
+export const generateTeamInsights = async (team, actions, memberCount, surveyCount) => {
+  try {
+    if (!process.env.REACT_APP_OPENAI_API_KEY) {
+      throw new Error('OpenAI API key is not configured. Please add your API key to the .env file.');
+    }
+    // Build payload
+    const payload = {
+      team: {
+        id: team.id,
+        name: team.name,
+        description: team.description
+      },
+      metrics: {
+        member_count: memberCount,
+        survey_count: surveyCount
+      },
+      recent_actions: actions.map(a => ({ action: a.action, reason: a.reason, timestamp: a.created_at }))
+    };
+    // Prompt for GPT-4
+    const prompt = `You are an expert team analytics specialist.
+Given the following team metadata, metrics, and recent member actions with reasons, produce a structured JSON object focusing solely on team/project related insights. Do NOT include unrelated information.
+1. key_findings: 3–5 concise insights about team health, engagement, and dynamics.
+2. member_metrics: summary statistics (e.g., total members, new members, removals).
+3. survey_metrics: number of surveys assigned to this team and insights on survey engagement.
+4. action_reason_summary: categorize and summarize reasons for invites, joins, and removals.
+5. recommendations: 3 specific, prioritized actions to improve team collaboration and retention.
+6. post_mortem: analyze these actions to identify performance issues, challenges faced, and lessons learned for the project/team.
+Return JSON only using the schema below, no extra text.
+---PAYLOAD---
+${JSON.stringify(payload, null, 2)}
+---END PAYLOAD---
+Schema:
+{
+  "key_findings":[{"title":"string","description":"string"}],
+  "member_metrics":{"string":"number|string"},
+  "survey_metrics":{"string":"number|string"},
+  "action_reason_summary":[{"reason":"string","summary":"string|object"}],
+  "recommendations":[{"action":"string","priority":"string","rationale":"string"}],
+  "post_mortem":{
+    "issues":[{"title":"string","description":"string","root_cause":"string","impact":"string"}],
+    "challenges":[{"area":"string","description":"string","resolution_attempts":"string"}],
+    "lessons_learned":[{"lesson":"string","preventive_measure":"string"}]
+  }
+}`;
+    const completion = await openai.chat.completions.create({
+      messages: [{ role: 'user', content: prompt }],
+      model: 'gpt-4-turbo-preview',
+      temperature: 0.7,
+      max_tokens: 1500,
+      response_format: { type: 'json_object' }
+    });
+    const analysisText = completion.choices[0].message.content;
+    let analysisJson;
+    try {
+      analysisJson = JSON.parse(analysisText);
+    } catch (error) {
+      console.error('Error parsing JSON response:', error);
+      throw new Error('Failed to parse AI response as JSON');
+    }
+    return { raw_analysis: analysisText, structured_analysis: analysisJson };
+  } catch (error) {
+    console.error('Error generating team insights:', error);
+    throw error;
+  }
+};
+
 export default {
-  generateSurveyInsights
+  generateSurveyInsights,
+  generateTeamInsights
 };

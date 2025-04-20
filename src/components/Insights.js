@@ -1,18 +1,20 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../context/AuthContext';
-import { generateSurveyInsights } from '../services/openai';
+import { generateSurveyInsights, generateTeamInsights } from '../services/openai';
 import { 
   FaRobot, FaBell, FaTimes, FaChartBar, 
-  FaChevronDown, FaChevronRight, FaDatabase
+  FaChevronDown, FaChevronRight, FaDatabase, FaUsers
 } from "react-icons/fa";
 import "./Insights.css";
 
 const InsightsModal = ({ survey, onClose }) => {
   const [loading, setLoading] = useState(true);
+  // eslint-disable-next-line no-unused-vars
   const [insights, setInsights] = useState(null);
   const [aiAnalysis, setAiAnalysis] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
+  // eslint-disable-next-line no-unused-vars
   const [responseData, setResponseData] = useState([]);
   const [newResponseAlert, setNewResponseAlert] = useState(false);
   
@@ -504,123 +506,13 @@ const InsightsModal = ({ survey, onClose }) => {
                       <div className="ai-section">
                         <h4>Recommendations</h4>
                         <div className="recommendations-list">
-                          {aiAnalysis.structured_analysis.recommendations?.map((rec, index) => {
-                            // Replace any question IDs in the action or rationale
-                            let actionText = rec.action;
-                            let rationaleText = rec.rationale;
-                            
-                            // Handle UUID-style question IDs
-                            const uuidPattern = new RegExp(`Question [a-f0-9-]{36}`, 'g');
-                            
-                            if (actionText) {
-                              survey.questions.forEach(q => {
-                                const idStr = `Question ${q.id}`;
-                                if (actionText.includes(idStr)) {
-                                  actionText = actionText.replace(new RegExp(idStr, 'g'), `"${q.question}"`);
-                                }
-                              });
-                              
-                              // Also try to match UUID pattern
-                              actionText = actionText.replace(uuidPattern, (match) => {
-                                const uuid = match.replace('Question ', '');
-                                const matchedQuestion = survey.questions.find(q => q.id === uuid);
-                                return matchedQuestion ? `"${matchedQuestion.question}"` : match;
-                              });
-                            }
-                            
-                            if (rationaleText) {
-                              survey.questions.forEach(q => {
-                                const idStr = `Question ${q.id}`;
-                                if (rationaleText.includes(idStr)) {
-                                  rationaleText = rationaleText.replace(new RegExp(idStr, 'g'), `"${q.question}"`);
-                                }
-                              });
-                              
-                              // Also try to match UUID pattern
-                              rationaleText = rationaleText.replace(uuidPattern, (match) => {
-                                const uuid = match.replace('Question ', '');
-                                const matchedQuestion = survey.questions.find(q => q.id === uuid);
-                                return matchedQuestion ? `"${matchedQuestion.question}"` : match;
-                              });
-                            }
-                            
-                            return (
-                              <div key={index} className={`recommendation-item priority-${rec.priority}`}>
-                                <h5>{actionText}</h5>
-                                <p>{rationaleText}</p>
-                                <span className="priority-badge">{rec.priority} priority</span>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-
-                      {/* Post-Mortem Analysis Section */}
-                      <div className="ai-section">
-                        <h4>Project Post-Mortem Analysis</h4>
-                        {console.log('Post-mortem data:', aiAnalysis.structured_analysis.post_mortem)}
-                        
-                        {/* Issues */}
-                        <div className="post-mortem-section">
-                          <h5>Key Issues Identified</h5>
-                          <div className="post-mortem-list">
-                            {aiAnalysis.structured_analysis.post_mortem?.issues?.map((issue, index) => {
-                              console.log('Processing issue:', issue);
-                              return (
-                                <div key={index} className="post-mortem-item">
-                                  <h6>{issue.title}</h6>
-                                  <p className="description">{issue.description}</p>
-                                  <div className="post-mortem-details">
-                                    <div className="detail-item">
-                                      <span className="label">Root Cause:</span>
-                                      <span className="value">{issue.root_cause}</span>
-                                    </div>
-                                    <div className="detail-item">
-                                      <span className="label">Impact:</span>
-                                      <span className="value">{issue.impact}</span>
-                                    </div>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-
-                        {/* Challenges */}
-                        <div className="post-mortem-section">
-                          <h5>Challenges Faced</h5>
-                          <div className="post-mortem-list">
-                            {aiAnalysis.structured_analysis.post_mortem?.challenges?.map((challenge, index) => (
-                              <div key={index} className="post-mortem-item">
-                                <h6>{challenge.area}</h6>
-                                <p className="description">{challenge.description}</p>
-                                <div className="post-mortem-details">
-                                  <div className="detail-item">
-                                    <span className="label">Resolution Attempts:</span>
-                                    <span className="value">{challenge.resolution_attempts}</span>
-                                  </div>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-
-                        {/* Lessons Learned */}
-                        <div className="post-mortem-section">
-                          <h5>Lessons Learned</h5>
-                          <div className="post-mortem-list">
-                            {aiAnalysis.structured_analysis.post_mortem?.lessons_learned?.map((lesson, index) => (
-                              <div key={index} className="post-mortem-item">
-                                <h6>{lesson.lesson}</h6>
-                                <div className="post-mortem-details">
-                                  <div className="detail-item">
-                                    <span className="label">Preventive Measure:</span>
-                                    <span className="value">{lesson.preventive_measure}</span>
-                                  </div>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
+                          {aiAnalysis.structured_analysis.recommendations?.map((rec, index) => (
+                            <div key={index} className={`recommendation-item priority-${rec.priority}`}>
+                              <h5>{rec.action}</h5>
+                              <p>{rec.rationale}</p>
+                              <span className="priority-badge">{rec.priority} priority</span>
+                            </div>
+                          ))}
                         </div>
                       </div>
                     </>
@@ -762,13 +654,213 @@ const RawResponsesModal = ({ survey, onClose }) => {
   );
 };
 
+const TeamInsightsModal = ({ team, onClose }) => {
+  const [aiLoading, setAiLoading] = useState(true);
+  const [analysis, setAnalysis] = useState(null);
+
+  useEffect(() => {
+    const fetchAndAnalyze = async () => {
+      try {
+        setAiLoading(true);
+        // Fetch recent actions with reasons
+        const { data: actions, error: actionsError } = await supabase
+          .from('team_member_actions')
+          .select('action, reason, created_at')
+          .eq('team_id', team.id)
+          .order('created_at', { ascending: true });
+        if (actionsError) throw actionsError;
+        // Fetch member count
+        const { count: memberCount, error: mcError } = await supabase
+          .from('team_members')
+          .select('user_id', { count: 'exact', head: true })
+          .eq('team_id', team.id);
+        if (mcError) throw mcError;
+        // Fetch survey count
+        const { count: surveyCount, error: scError } = await supabase
+          .from('team_surveys')
+          .select('survey_id', { count: 'exact', head: true })
+          .eq('team_id', team.id);
+        if (scError) throw scError;
+        // Generate AI insights
+        const { structured_analysis } = await generateTeamInsights(team, actions, memberCount, surveyCount);
+        setAnalysis(structured_analysis);
+      } catch (err) {
+        console.error('Error generating team insights:', err);
+        setAnalysis(`Error generating insights: ${err.message}`);
+      } finally {
+        setAiLoading(false);
+      }
+    };
+    fetchAndAnalyze();
+  }, [team]);
+
+  if (aiLoading) {
+    return (
+      <div className="insights-modal-overlay">
+        <div className="insights-modal loading-modal" onClick={e => e.stopPropagation()}>
+          <div className="loading-container">
+            <div className="loading-animation"></div>
+            <h3 className="loading-text">Generating Insights</h3>
+            <p className="loading-subtext">Analyzing team data and preparing your insights...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const actionSummaryItems = analysis?.action_reason_summary
+    ? Array.isArray(analysis.action_reason_summary)
+      ? analysis.action_reason_summary
+      : Object.entries(analysis.action_reason_summary).map(([reason, summary]) => ({ reason, summary }))
+    : [];
+
+  return (
+    <div className="insights-modal-overlay" onClick={onClose}>
+      <div className="insights-modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2>{team.name} - Insights</h2>
+          <button className="close-button" onClick={onClose}>
+            <FaTimes />
+          </button>
+        </div>
+        <div className="modal-content">
+          <div className="insights-container-box">
+            <div className="ai-insights">
+              {/* Post-Mortem Analysis Section */}
+              {analysis.post_mortem && (
+                <div className="ai-section">
+                  <h4>Project Post-Mortem Analysis</h4>
+                  {/* Issues */}
+                  <div className="post-mortem-section">
+                    <h5>Key Issues Identified</h5>
+                    <div className="post-mortem-list">
+                      {analysis.post_mortem.issues?.map((issue, idx) => (
+                        <div key={idx} className="post-mortem-item">
+                          <h6>{issue.title}</h6>
+                          <p className="description">{issue.description}</p>
+                          <div className="post-mortem-details">
+                            <div className="detail-item">
+                              <span className="label">Root Cause:</span>
+                              <span className="value">{issue.root_cause}</span>
+                            </div>
+                            <div className="detail-item">
+                              <span className="label">Impact:</span>
+                              <span className="value">{issue.impact}</span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  {/* Challenges */}
+                  <div className="post-mortem-section">
+                    <h5>Challenges Faced</h5>
+                    <div className="post-mortem-list">
+                      {analysis.post_mortem.challenges?.map((challenge, idx) => (
+                        <div key={idx} className="post-mortem-item">
+                          <h6>{challenge.area}</h6>
+                          <p className="description">{challenge.description}</p>
+                          <div className="post-mortem-details">
+                            <div className="detail-item">
+                              <span className="label">Resolution Attempts:</span>
+                              <span className="value">{challenge.resolution_attempts}</span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  {/* Lessons Learned */}
+                  <div className="post-mortem-section">
+                    <h5>Lessons Learned</h5>
+                    <div className="post-mortem-list">
+                      {analysis.post_mortem.lessons_learned?.map((lesson, idx) => (
+                        <div key={idx} className="post-mortem-item">
+                          <h6>{lesson.lesson}</h6>
+                          <div className="post-mortem-details">
+                            <div className="detail-item">
+                              <span className="label">Preventive Measure:</span>
+                              <span className="value">{lesson.preventive_measure}</span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+              {/* Key Findings Section */}
+              {analysis.key_findings && (
+                <div className="ai-section">
+                  <h4>Key Findings</h4>
+                  <div className="findings-list">
+                    {analysis.key_findings.map((f, i) => (
+                      <div key={i} className="finding-item">
+                        <h5>{f.title}</h5>
+                        <p>{f.description}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {/* Action Reason Summary Section */}
+              {actionSummaryItems.length > 0 && (
+                <div className="ai-section">
+                  <h4>Action Reason Summary</h4>
+                  <div className="patterns-list">
+                    {actionSummaryItems.map((item, i) => (
+                      <div key={i} className="pattern-item">
+                        <h5>{item.reason}</h5>
+                        {item.summary && typeof item.summary === 'object' ? (
+                          <ul className="summary-list">
+                            {Object.entries(item.summary).map(([key, value], idx) => (
+                              <li key={idx}>
+                                <strong>{key.replace(/_/g, ' ')}</strong>: {value}
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <p>{item.summary || item.details || JSON.stringify(item)}</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {/* Recommendations Section */}
+              {analysis.recommendations && (
+                <div className="ai-section">
+                  <h4>Recommendations</h4>
+                  <div className="recommendations-list">
+                    {analysis.recommendations.map((rec, index) => (
+                      <div key={index} className={`recommendation-item priority-${rec.priority}`}>
+                        <h5>{rec.action}</h5>
+                        <p>{rec.rationale}</p>
+                        <span className="priority-badge">{rec.priority} priority</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const Insights = () => {
   const { user } = useAuth();
   const [surveys, setSurveys] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedSurvey, setSelectedSurvey] = useState(null);
   const [viewMode, setViewMode] = useState(null); // 'ai' or 'raw'
-  
+  const [insightsTab, setInsightsTab] = useState('survey');
+  const [teamsData, setTeamsData] = useState([]);
+  const [loadingTeams, setLoadingTeams] = useState(false);
+  const [selectedTeamInsights, setSelectedTeamInsights] = useState(null);
+
   useEffect(() => {
     const fetchSurveys = async () => {
       if (!user) return;
@@ -801,6 +893,36 @@ const Insights = () => {
     fetchSurveys();
   }, [user]);
 
+  useEffect(() => {
+    if (insightsTab !== 'team' || !user) return;
+    const fetchTeamsInsights = async () => {
+      setLoadingTeams(true);
+      try {
+        const { data: memberTeams, error: mtError } = await supabase
+          .from('team_members')
+          .select(`
+            teams!inner (
+              id,
+              name,
+              description
+            )
+          `)
+          .eq('user_id', user.id);
+        if (mtError) throw mtError;
+        const formatted = memberTeams.map(mt => ({
+          id: mt.teams.id,
+          name: mt.teams.name,
+          description: mt.teams.description
+        }));
+        setTeamsData(formatted);
+      } catch (err) {
+        console.error('Error fetching teams:', err);
+      }
+      setLoadingTeams(false);
+    };
+    fetchTeamsInsights();
+  }, [insightsTab, user]);
+
   const openModal = (survey, mode) => {
     setSelectedSurvey(survey);
     setViewMode(mode);
@@ -823,38 +945,62 @@ const Insights = () => {
 
   return (
     <div className="insights-container">
-      <h1>Survey Insights</h1>
-      
+      <div className="insights-tabs">
+        <button className={`tab-btn ${insightsTab==='survey'?'active':''}`} onClick={()=>setInsightsTab('survey')}>Survey Insights</button>
+        <button className={`tab-btn ${insightsTab==='team'?'active':''}`} onClick={()=>setInsightsTab('team')}>Team Insights</button>
+      </div>
+      <h1>{insightsTab==='survey'?'Survey Insights':'Team Insights'}</h1>
       {surveys.length === 0 ? (
         <div className="no-surveys">
           <p>No completed surveys found. Complete a survey to see insights.</p>
         </div>
       ) : (
-        <div className="surveys-grid">
-          {surveys.map(survey => (
-            <div key={survey.id} className="survey-card">
-              <div className="card-icon">
-                <FaChartBar />
+        insightsTab === 'survey' ? (
+          <div className="surveys-grid">
+            {surveys.map(survey => (
+              <div key={survey.id} className="survey-card">
+                <div className="card-icon">
+                  <FaChartBar />
+                </div>
+                <h3>{survey.title}</h3>
+                <p>{survey.description || 'No description provided'}</p>
+                <div className="survey-card-buttons">
+                  <button 
+                    className="view-insights-btn ai-insights-btn"
+                    onClick={() => openModal(survey, 'ai')}
+                  >
+                    <FaRobot className="btn-icon" /> View AI Insights
+                  </button>
+                  <button 
+                    className="view-insights-btn raw-data-btn"
+                    onClick={() => openModal(survey, 'raw')}
+                  >
+                    <FaDatabase className="btn-icon" /> View Raw Responses
+                  </button>
+                </div>
               </div>
-              <h3>{survey.title}</h3>
-              <p>{survey.description || 'No description provided'}</p>
-              <div className="survey-card-buttons">
-                <button 
-                  className="view-insights-btn ai-insights-btn"
-                  onClick={() => openModal(survey, 'ai')}
-                >
-                  <FaRobot className="btn-icon" /> View AI Insights
-                </button>
-                <button 
-                  className="view-insights-btn raw-data-btn"
-                  onClick={() => openModal(survey, 'raw')}
-                >
-                  <FaDatabase className="btn-icon" /> View Raw Responses
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <div className="teams-grid">
+            {loadingTeams ? (
+              <div>Loading teams...</div>
+            ) : (
+              teamsData.map(team => (
+                <div key={team.id} className="survey-card">
+                  <div className="card-icon"><FaUsers /></div>
+                  <h3>{team.name}</h3>
+                  <p>{team.description || 'No description provided'}</p>
+                  <div className="survey-card-buttons">
+                    <button className="view-insights-btn ai-insights-btn" onClick={()=>setSelectedTeamInsights(team)}>
+                      <FaRobot className="btn-icon" /> View AI Insights
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        )
       )}
 
       {selectedSurvey && viewMode === 'ai' && (
@@ -869,6 +1015,10 @@ const Insights = () => {
           survey={selectedSurvey} 
           onClose={closeModal} 
         />
+      )}
+
+      {selectedTeamInsights && (
+        <TeamInsightsModal team={selectedTeamInsights} onClose={()=>setSelectedTeamInsights(null)} />
       )}
     </div>
   );
