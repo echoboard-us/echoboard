@@ -1,26 +1,26 @@
 import { OpenAI } from 'openai';
+
+// Centralize API key validation
+function ensureApiKey() {
+  if (!process.env.REACT_APP_OPENAI_API_KEY) {
+    console.error('OpenAI API key is not configured. Please add your API key to the .env file.');
+    throw new Error('OpenAI API key is missing');
+  }
+}
+
+ensureApiKey();
+
 // Initialize the OpenAI client
 const openai = new OpenAI({
   apiKey: process.env.REACT_APP_OPENAI_API_KEY,
   dangerouslyAllowBrowser: true
 });
 
-// Add error handling for missing API key
-if (!process.env.REACT_APP_OPENAI_API_KEY) {
-  console.error('OpenAI API key is not configured. Please add your API key to the .env file.');
-  throw new Error('OpenAI API key is missing');
-}
-
 // Export the initialized client
 export { openai };
 
 export const generateSurveyInsights = async (survey, responses) => {
   try {
-    // Verify API key is available before making the request
-    if (!process.env.REACT_APP_OPENAI_API_KEY) {
-      throw new Error('OpenAI API key is not configured. Please add your API key to the .env file.');
-    }
-
     // Format the survey data and responses into the expected payload format
     const payload = {
       survey: {
@@ -110,25 +110,31 @@ Schema:
   }
 }`;
 
-    const completion = await openai.chat.completions.create({
+    const stream = await openai.chat.completions.create({
       messages: [{ role: "user", content: prompt }],
-      model: "gpt-4-turbo-preview",
+      model: "gpt-4.1-nano",
       temperature: 0.7,
       max_tokens: 2000,
-      response_format: { type: "json_object" }
+      response_format: { type: "json_object" },
+      stream: true
     });
-
-    // Parse the JSON response
-    const analysisText = completion.choices[0].message.content;
+    let analysisText = "";
+    for await (const chunk of stream) {
+      try {
+        const delta = chunk.choices[0].delta?.content;
+        if (delta) analysisText += delta;
+      } catch (err) {
+        console.error('Error processing chunk:', err);
+        continue;
+      }
+    }
     let analysisJson;
-    
     try {
       analysisJson = JSON.parse(analysisText);
     } catch (error) {
       console.error('Error parsing JSON response:', error);
       throw new Error('Failed to parse AI response as JSON');
     }
-    
     return {
       raw_analysis: analysisText,
       structured_analysis: analysisJson
@@ -141,9 +147,6 @@ Schema:
 
 export const generateTeamInsights = async (team, actions, memberCount, surveyCount) => {
   try {
-    if (!process.env.REACT_APP_OPENAI_API_KEY) {
-      throw new Error('OpenAI API key is not configured. Please add your API key to the .env file.');
-    }
     // Build payload
     const payload = {
       team: {
@@ -183,14 +186,24 @@ Schema:
     "lessons_learned":[{"lesson":"string","preventive_measure":"string"}]
   }
 }`;
-    const completion = await openai.chat.completions.create({
+    const stream = await openai.chat.completions.create({
       messages: [{ role: 'user', content: prompt }],
-      model: 'gpt-4-turbo-preview',
+      model: 'gpt-4.1-nano',
       temperature: 0.7,
       max_tokens: 1500,
-      response_format: { type: 'json_object' }
+      response_format: { type: 'json_object' },
+      stream: true
     });
-    const analysisText = completion.choices[0].message.content;
+    let analysisText = "";
+    for await (const chunk of stream) {
+      try {
+        const delta = chunk.choices[0].delta?.content;
+        if (delta) analysisText += delta;
+      } catch (err) {
+        console.error('Error processing chunk:', err);
+        continue;
+      }
+    }
     let analysisJson;
     try {
       analysisJson = JSON.parse(analysisText);
