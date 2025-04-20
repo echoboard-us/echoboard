@@ -13,6 +13,7 @@ const TeamInvite = ({ teamId, teamName, onClose }) => {
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
   const [searching, setSearching] = useState(false);
+  const [reason, setReason] = useState("");
 
   // Search for users as you type
   useEffect(() => {
@@ -67,6 +68,10 @@ const TeamInvite = ({ teamId, teamName, onClose }) => {
   const handleInviteUsers = async () => {
     if (!selectedUsers.length) {
       setError("Please select at least one user to invite.");
+      return;
+    }
+    if (!reason.trim()) {
+      setError("Please provide a reason for inviting.");
       return;
     }
 
@@ -128,6 +133,8 @@ const TeamInvite = ({ teamId, teamName, onClose }) => {
               failCount++;
               continue;
             }
+            // log invite action
+            await supabase.from('team_member_actions').insert([{ team_id: teamId, user_id: invitedUser.id, actor_id: user.id, action: 'invite', reason }]);
             successCount++;
           } else {
             console.log("Creating new invitation for user:", invitedUser.id);
@@ -158,6 +165,8 @@ const TeamInvite = ({ teamId, teamName, onClose }) => {
               failCount++;
               continue;
             }
+            // log invite action
+            await supabase.from('team_member_actions').insert([{ team_id: teamId, user_id: invitedUser.id, actor_id: user.id, action: 'invite', reason }]);
             successCount++;
           }
         } catch (userError) {
@@ -227,13 +236,22 @@ const TeamInvite = ({ teamId, teamName, onClose }) => {
         </div>
       </div>
 
+      <div className="reason-input">
+        <label>Why are you inviting?</label>
+        <textarea
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          placeholder="Enter reason..."
+        />
+      </div>
+
       {error && <div className="error-message">{error}</div>}
       {successMessage && (
         <div className="success-message">{successMessage}</div>
       )}
 
       <div className="search-results">
-        {loading ? (
+        {searching ? (
           <div className="loading">Searching...</div>
         ) : searchResults.length > 0 ? (
           searchResults.map((user) => (

@@ -42,6 +42,11 @@ const Teams = () => {
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
   const [surveyFrequencies, setSurveyFrequencies] = useState({});
 
+  // State for reason modal
+  const [showReasonModal, setShowReasonModal] = useState(false);
+  const [modalReason, setModalReason] = useState("");
+  const [modalConfig, setModalConfig] = useState({ type: '', inviteId: null, memberId: null, teamId: null });
+
   // Define fetchTeams with useCallback
   const fetchTeams = useCallback(async () => {
     try {
@@ -222,131 +227,31 @@ const Teams = () => {
     setShowInviteModal(true);
   };
 
-  const handleAcceptInvite = async (inviteId, teamId) => {
-    console.log(
-      "Accepting invite with - inviteId:",
-      inviteId,
-      "teamId:",
-      teamId,
-      "userId:",
-      user.id
-    );
-    try {
-      // First verify the invitation exists and is pending
-      const { data: inviteCheck, error: inviteCheckError } = await supabase
-        .from("team_invitations")
-        .select(`
-          id,
-          team_id,
-          status,
-          invited_user,
-          teams!inner (
-            id,
-            name,
-            description
-          )
-        `)
-        .eq("id", inviteId)
-        .eq("invited_user", user.id)
-        .single();
+  // open modal for accept/remove
+  const openReasonModal = (type, inviteId=null, memberId=null, teamId=null) => {
+    setModalConfig({ type, inviteId, memberId, teamId });
+    setModalReason("");
+    setShowReasonModal(true);
+  };
 
-      console.log("DEBUG - Full invitation check:", {
-        inviteId,
-        teamId,
-        userId: user.id,
-        inviteCheck,
-        inviteCheckError
-      });
-
-      if (inviteCheckError) {
-        console.error("Error checking invitation:", inviteCheckError);
-        if (inviteCheckError.code === 'PGRST116') {
-          setError("Invitation not found. It may have been deleted or already processed.");
-        } else {
-          setError("Failed to verify invitation: " + inviteCheckError.message);
-        }
-        return;
-      }
-
-      if (inviteCheck.status !== 'pending') {
-        setError("This invitation has already been " + inviteCheck.status);
-        return;
-      }
-
-      // Check if user is already a member of the team
-      const { data: existingMember, error: memberCheckError } = await supabase
-        .from("team_members")
-        .select("id")
-        .eq("team_id", inviteCheck.team_id)
-        .eq("user_id", user.id)
-        .maybeSingle();
-
-      console.log("DEBUG - Member check:", {
-        existingMember,
-        memberCheckError,
-        teamId: inviteCheck.team_id,
-        userId: user.id
-      });
-
-      if (memberCheckError) {
-        console.error("Error checking existing membership:", memberCheckError);
-        setError("Failed to check team membership: " + memberCheckError.message);
-        return;
-      }
-
-      if (existingMember) {
-        setError("You are already a member of this team.");
-        return;
-      }
-
-      // Add user as team member first
-      console.log("Adding user as team member to team:", inviteCheck.teams.name);
-      const { error: memberError } = await supabase
-        .from("team_members")
-        .insert([
-          {
-            team_id: inviteCheck.team_id,
-            user_id: user.id,
-            role: "member",
-          },
-        ]);
-
-      if (memberError) {
-        console.error("Error adding team member:", memberError);
-        setError("Failed to add you as team member: " + memberError.message);
-        return;
-      }
-
-      // Then update invitation status
-      console.log("Updating invitation status to accepted");
-      const { error: inviteError } = await supabase
-        .from("team_invitations")
-        .update({ status: "accepted" })
-        .eq("id", inviteId);
-
-      if (inviteError) {
-        console.error("Error updating invitation:", inviteError);
-        // Try to remove the team member since invitation update failed
-        await supabase
-          .from("team_members")
-          .delete()
-          .eq("team_id", inviteCheck.team_id)
-          .eq("user_id", user.id);
-        setError("Failed to update invitation: " + inviteError.message);
-        return;
-      }
-
-      // Success! Refresh the lists and show success message
-      console.log("Successfully accepted invitation, refreshing data");
+  // process modal action
+  const processReasonAction = async () => {
+    if (modalConfig.type === 'join') {
+      const { error } = await supabase.rpc('accept_invite', { p_team_id: modalConfig.teamId, p_user_id: user.id, p_reason: modalReason });
+      if (error) return setError(error.message);
       await Promise.all([fetchTeams(), fetchPendingInvites()]);
       setShowNotifications(false);
-      setError(null);
-      alert(`Successfully joined team "${inviteCheck.teams.name}"`);
-
-    } catch (error) {
-      console.error("Error accepting invite:", error);
-      setError("Failed to accept invitation: " + error.message);
+    } else if (modalConfig.type === 'remove') {
+      const { error } = await supabase.rpc('remove_team_member', { p_team_id: modalConfig.teamId, p_user_id: modalConfig.memberId, p_reason: modalReason });
+      if (error) return setError(error.message);
+      await fetchTeamMembers(modalConfig.teamId);
     }
+    setShowReasonModal(false);
+    setError(null);
+  };
+
+  const handleAcceptInvite = async (inviteId, teamId) => {
+    openReasonModal('join', inviteId, null, teamId);
   };
 
   const handleDeclineInvite = async (inviteId) => {
@@ -710,23 +615,7 @@ const Teams = () => {
   };
 
   const handleRemoveMember = async (memberId) => {
-    if (!selectedTeam) return;
-    
-    try {
-      const { error } = await supabase
-        .from("team_members")
-        .delete()
-        .eq("team_id", selectedTeam.id)
-        .eq("user_id", memberId);
-
-      if (error) throw error;
-
-      // Refresh the members list
-      await fetchTeamMembers(selectedTeam.id);
-    } catch (error) {
-      console.error("Error removing team member:", error);
-      setError("Failed to remove team member: " + error.message);
-    }
+    openReasonModal('remove', null, memberId, selectedTeam.id);
   };
 
   const fetchTeamMembers = async (teamId) => {
@@ -1305,6 +1194,20 @@ const Teams = () => {
             setSelectedTeamForSurveys(null);
           }}
         />
+      )}
+
+      {/* Reason Modal */}
+      {showReasonModal && (
+        <div className="modal-overlay">
+          <div className="reason-modal">
+            <h3>{modalConfig.type === 'join' ? 'Why are you joining this team?' : 'Why are you removing this member?'}</h3>
+            <textarea value={modalReason} onChange={e => setModalReason(e.target.value)} placeholder="Enter reason..." />
+            <div className="modal-actions">
+              <button className="cancel-btn" onClick={() => setShowReasonModal(false)}>Cancel</button>
+              <button className="confirm-btn" onClick={processReasonAction} disabled={!modalReason.trim()}>Confirm</button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -228,3 +228,24 @@
   padding: 1rem;
   font-size: 0.875rem;
 }
+
+/* style for reason input */
+.reason-input {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.reason-input label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+.reason-input textarea {
+  width: 100%;
+  min-height: 100px;
+  padding: 0.75rem;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  resize: vertical;
+  font-size: 0.875rem;
+}
