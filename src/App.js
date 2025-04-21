@@ -17,6 +17,7 @@ import Teams from './components/Teams';
 import SignUp from './components/Auth/SignUp';
 import SignIn from './components/Auth/SignIn';
 import ProtectedRoute from './components/ProtectedRoute';
+import LandingPage from './components/LandingPage';
 import './App.css';
 
 function App() {
@@ -42,6 +43,7 @@ function AppContent() {
 
   return (
     <Routes>
+      <Route path="/" element={user ? <Navigate to="/dashboard" /> : <LandingPage />} />
       <Route path="/signup" element={user ? <Navigate to="/dashboard" /> : <SignUp />} />
       <Route path="/signin" element={user ? <Navigate to="/dashboard" /> : <SignIn />} />
 
