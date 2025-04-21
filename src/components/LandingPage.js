@@ -29,7 +29,7 @@ const LandingPage = () => {
             <h2>Real Insights. Real Impact.</h2>
             <p>
               Transform your team's feedback into actionable insights.
-              Echoboard helps you collect, analyze, and act on survey data
+              EchoBoard helps you collect, analyze, and act on survey data
               to drive meaningful organizational change.
             </p>
             <div className="cta-buttons">
