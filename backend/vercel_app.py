@@ -98,6 +98,6 @@ def handler(request):
         return app.handle_request(request)
     return app.handle_request(request) 
 
-    # deploy with vercel make changes
+    # deploy with vercel make changes to deploy
     # vercel --prod...
     # vercel --prod...
