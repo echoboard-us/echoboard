@@ -480,7 +480,7 @@ const Teams = () => {
         setError('This survey is already associated with the team');
         return;
       }
-m
+
       const { error: insertError } = await supabase
         .from('team_surveys')
         .insert({
@@ -580,7 +580,6 @@ m
         .eq('survey_id', surveyId);
 
       if (error) throw error;
-s
       await fetchTeamSurveys(teamId);
       await fetchAvailableSurveys(teamId);
     } catch (error) {

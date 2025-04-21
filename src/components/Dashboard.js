@@ -299,7 +299,7 @@ Produce the JSON spec now.
         console.error("Dashboard container not found");
         return;
       }
-e
+
       const teamName = typeof currentTeam === 'string' 
         ? currentTeam 
         : (currentTeam.name || 'Dashboard');
