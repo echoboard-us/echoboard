@@ -78,7 +78,6 @@ const Teams = () => {
         throw memberError;
       }
 
-      // Map the data to the expected format
       const formattedTeams = memberTeams.map((mt) => ({
         id: mt.teams.id,
         name: mt.teams.name || "Unnamed Team",
@@ -97,7 +96,6 @@ const Teams = () => {
     }
   }, [user]);
 
-  // Define fetchPendingInvites with useCallback
   const fetchPendingInvites = useCallback(async () => {
     try {
       console.log(
@@ -107,7 +105,6 @@ const Teams = () => {
         user.email
       );
 
-      // First, let's check if the user exists in profiles
       const { data: userProfile, error: profileError } = await supabase
         .from("profiles")
         .select("*")
@@ -116,7 +113,6 @@ const Teams = () => {
 
       console.log("User profile check:", { userProfile, profileError });
 
-      // Get pending invitations with proper join syntax
       const { data: invites, error } = await supabase
         .from("team_invitations")
         .select(
@@ -158,7 +154,6 @@ const Teams = () => {
     }
   }, [user]);
 
-  // Fetch teams and pending invitations
   useEffect(() => {
     if (user) {
       fetchTeams();
@@ -171,7 +166,6 @@ const Teams = () => {
     if (!newTeam.name.trim()) return;
 
     try {
-      // First create the team
       const { data: team, error: teamError } = await supabase
         .from("teams")
         .insert([
@@ -227,14 +221,12 @@ const Teams = () => {
     setShowInviteModal(true);
   };
 
-  // open modal for accept/remove
   const openReasonModal = (type, inviteId=null, memberId=null, teamId=null) => {
     setModalConfig({ type, inviteId, memberId, teamId });
     setModalReason("");
     setShowReasonModal(true);
   };
 
-  // process modal action
   const processReasonAction = async () => {
     if (modalConfig.type === 'join') {
       const { error } = await supabase.rpc('accept_invite', { p_team_id: modalConfig.teamId, p_user_id: user.id, p_reason: modalReason });
@@ -285,7 +277,6 @@ const Teams = () => {
       setLoading(true);
       console.log("Deleting team:", selectedTeam.id);
 
-      // First verify user is the owner
       const { data: teamMember, error: roleCheckError } = await supabase
         .from("team_members")
         .select("role")
@@ -304,7 +295,6 @@ const Teams = () => {
         return;
       }
 
-      // Delete team surveys first
       const { error: surveysError } = await supabase
         .from("team_surveys")
         .delete()
@@ -315,7 +305,6 @@ const Teams = () => {
         throw surveysError;
       }
 
-      // Delete team members
       const { error: membersError } = await supabase
         .from("team_members")
         .delete()
@@ -326,7 +315,6 @@ const Teams = () => {
         throw membersError;
       }
 
-      // Delete any pending invitations
       const { error: invitationsError } = await supabase
         .from("team_invitations")
         .delete()
@@ -337,7 +325,6 @@ const Teams = () => {
         throw invitationsError;
       }
 
-      // Finally delete the team
       const { error: teamError } = await supabase
         .from("teams")
         .delete()
@@ -419,7 +406,6 @@ const Teams = () => {
 
       if (surveysError) throw surveysError;
 
-      // Then get surveys already added to the team
       const { data: teamSurveys, error: teamSurveysError } = await supabase
         .from('team_surveys')
         .select('survey_id')
@@ -427,7 +413,6 @@ const Teams = () => {
 
       if (teamSurveysError) throw teamSurveysError;
 
-      // Filter out surveys that are already added to the team
       const teamSurveyIds = teamSurveys.map(ts => ts.survey_id);
       const availableSurveys = userSurveys.filter(
         survey => !teamSurveyIds.includes(survey.id)
@@ -453,7 +438,6 @@ const Teams = () => {
     try {
       console.log('Adding survey to team:', { teamId, surveyId, userId: user.id });
       
-      // First verify the team exists
       const { data: teamExists, error: teamError } = await supabase
         .from('teams')
         .select('id')
@@ -466,7 +450,6 @@ const Teams = () => {
         return;
       }
 
-      // Then verify the survey exists
       const { data: surveyExists, error: surveyError } = await supabase
         .from('surveys')
         .select('id')
@@ -479,7 +462,6 @@ const Teams = () => {
         return;
       }
 
-      // Check if the survey is already associated with the team
       const { data: existing, error: existingError } = await supabase
         .from('team_surveys')
         .select('*')
@@ -498,14 +480,13 @@ const Teams = () => {
         setError('This survey is already associated with the team');
         return;
       }
-
-      // Add the survey to the team
+m
       const { error: insertError } = await supabase
         .from('team_surveys')
         .insert({
           team_id: teamId,
           survey_id: surveyId,
-          frequency: 'never' // Default frequency is never
+          frequency: 'never'
         });
 
       if (insertError) {
@@ -567,7 +548,7 @@ const Teams = () => {
         [surveyId]: true
       }));
       
-      // Call the email service to send the survey
+
       const result = await sendSurveyToTeam(teamId, surveyId);
       
       if (result.status === 'success') {
@@ -599,8 +580,7 @@ const Teams = () => {
         .eq('survey_id', surveyId);
 
       if (error) throw error;
-
-      // Refresh the surveys lists
+s
       await fetchTeamSurveys(teamId);
       await fetchAvailableSurveys(teamId);
     } catch (error) {
@@ -637,7 +617,6 @@ const Teams = () => {
         throw membersError;
       }
 
-      // Format the members data
       const formattedMembers = members.map(m => ({
         id: m.user_id,
         email: m.profiles?.email,
@@ -663,7 +642,6 @@ const Teams = () => {
     };
 
     const handleViewSurvey = (surveyId) => {
-      // Navigate to the survey page and close the modal
       window.location.href = `/surveys/${surveyId}`;
       onClose();
     };

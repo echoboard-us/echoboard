@@ -46,21 +46,18 @@ const Survey = () => {
   const [shareTokenLoading, setShareTokenLoading] = useState(false);
   const [showAiInput, setShowAiInput] = useState(null); // Changed to null to track which question is being edited
   
-  // New state variables for templates
   const [templates, setTemplates] = useState([]);
   const [showTemplateModal, setShowTemplateModal] = useState(false);
   const [viewingTemplate, setViewingTemplate] = useState(null);
 
-  // Helper function to parse rating scale from question text
   const getRatingScale = (questionText) => {
-    // Match patterns like "1-10", "0-5", etc.
     const match = questionText.match(/(\d+)\s*-\s*(\d+)/);
     if (match) {
       const min = parseInt(match[1]);
       const max = parseInt(match[2]);
-      return Math.max(1, max - min + 1); // Ensure at least 1 star
+      return Math.max(1, max - min + 1);
     }
-    return 5; // Default to 5 stars if no scale found
+    return 5;
   };
 
   // Fetch surveys from Supabase
@@ -116,7 +113,6 @@ const Survey = () => {
 
       if (error) throw error;
       
-      // Parse JSONB questions if needed
       if (data.questions && typeof data.questions === 'string') {
         data.questions = JSON.parse(data.questions);
       }
@@ -399,7 +395,6 @@ const Survey = () => {
 
   const updateQuestion = useCallback((index, field, value, survey = newSurvey) => {
     const updatedQuestions = [...survey.questions];
-    // If updating the type field, ensure we use a valid enum value
     if (field === 'type') {
       value = QUESTION_TYPES[value.toUpperCase()] || QUESTION_TYPES.TEXT;
     }
@@ -481,8 +476,6 @@ const Survey = () => {
       
       const data = await response.json();
       console.log('AI suggestion response:', data);
-      
-      // Format the suggestions with questionIndex for the UI
       const formattedSuggestions = data.suggestions.map(suggestion => ({
         ...suggestion,
         questionIndex: index
@@ -490,7 +483,7 @@ const Survey = () => {
       
       setAiSuggestions({
         suggestions: formattedSuggestions,
-        questionIndex: index // Add questionIndex to track which question the suggestions are for
+        questionIndex: index 
       });
     } catch (error) {
       console.error('Error fetching AI suggestions:', error);
@@ -505,35 +498,28 @@ const Survey = () => {
 
     const updatedQuestions = [...editingSurvey.questions];
     
-    // Handle question improvement
     if (suggestion.type === 'question_improvement') {
       const questionIndex = suggestion.questionIndex;
-      
-      // Create a copy of the current question
+  
       const updatedQuestion = { ...updatedQuestions[questionIndex] };
       
-      // Update the question text
+
       updatedQuestion.text = suggestion.text;
-      
-      // If the suggestion includes choices and the question is a type that uses choices
+
       if (suggestion.choices && ['multiple_choice', 'checkbox', 'dropdown'].includes(updatedQuestion.type)) {
         updatedQuestion.options = suggestion.choices;
       }
-      
-      // Update the question in the questions array
+
       updatedQuestions[questionIndex] = updatedQuestion;
       
-      // Update the editing survey state
       setEditingSurvey({ ...editingSurvey, questions: updatedQuestions });
       
-      // Clear suggestions after applying
       setAiSuggestions(null);
     }
   }, [editingSurvey]);
 
   const handleStatusChange = useCallback(async (surveyId, newStatus) => {
     try {
-      // First verify the user owns this survey
       const { data: surveyData, error: fetchError } = await supabase
         .from('surveys')
         .select('creator_id')
@@ -559,7 +545,6 @@ const Survey = () => {
       );
       setSurveys(updatedSurveys);
       
-      // Update the viewing survey if it's the one being modified
       if (viewingSurvey && viewingSurvey.id === surveyId) {
         setViewingSurvey({ ...viewingSurvey, status: newStatus });
       }
@@ -586,22 +571,18 @@ const Survey = () => {
     setShowCreateForm(true);
   }, [prepareQuestionsForEdit]);
 
-  // Function to generate a share token and save it to survey_share_links
   const generateShareToken = useCallback(async (surveyId) => {
     setShareTokenLoading(true);
     try {
-      // Generate a random token
       const tokenBytes = new Uint8Array(16);
       window.crypto.getRandomValues(tokenBytes);
       const token = Array.from(tokenBytes)
         .map(b => b.toString(16).padStart(2, '0'))
         .join('');
       
-      // Set expiry date (30 days from now)
       const expiryDate = new Date();
       expiryDate.setDate(expiryDate.getDate() + 30);
       
-      // Save to survey_share_links table
       const { data: tokenData, error } = await supabase
         .from('survey_share_links')
         .insert([{
@@ -629,7 +610,6 @@ const Survey = () => {
   const ViewSurveyModal = useCallback(({ survey, onClose }) => {
     if (!survey) return null;
 
-    // Get a safe status value
     const surveyStatus = survey.status || 'draft';
 
     return (

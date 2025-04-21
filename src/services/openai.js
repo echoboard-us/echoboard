@@ -1,6 +1,5 @@
 import { OpenAI } from 'openai';
 
-// Centralize API key validation
 function ensureApiKey() {
   if (!process.env.REACT_APP_OPENAI_API_KEY) {
     console.error('OpenAI API key is not configured. Please add your API key to the .env file.');
@@ -10,18 +9,15 @@ function ensureApiKey() {
 
 ensureApiKey();
 
-// Initialize the OpenAI client
 const openai = new OpenAI({
   apiKey: process.env.REACT_APP_OPENAI_API_KEY,
   dangerouslyAllowBrowser: true
 });
 
-// Export the initialized client
 export { openai };
 
 export const generateSurveyInsights = async (survey, responses) => {
   try {
-    // Format the survey data and responses into the expected payload format
     const payload = {
       survey: {
         id: survey.id || `SURV_${Date.now()}`,
@@ -45,7 +41,6 @@ export const generateSurveyInsights = async (survey, responses) => {
       }))
     };
 
-    // Create a detailed prompt for GPT with the new structured format
     const prompt = `You are an expert insights analyst. 
 Given the following survey metadata, questions, and all responses, produce a structured JSON object containing:
 
@@ -160,7 +155,6 @@ export const generateTeamInsights = async (team, actions, memberCount, surveyCou
       },
       recent_actions: actions.map(a => ({ action: a.action, reason: a.reason, timestamp: a.created_at }))
     };
-    // Prompt for GPT-4
     const prompt = `You are an expert team analytics specialist.
 Given the following team metadata, metrics, and recent member actions with reasons, produce a structured JSON object focusing solely on team/project related insights. Do NOT include unrelated information.
 1. key_findings: 3–5 concise insights about team health, engagement, and dynamics.

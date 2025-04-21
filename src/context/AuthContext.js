@@ -14,15 +14,14 @@ export const AuthProvider = ({ children }) => {
       setLoading(false);
     });
 
-    // Listen for changes in authentication state
+
     const { data: authListener } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         setUser(session?.user ?? null);
-        setLoading(false); // Ensure loading is set to false after initial check and updates
+        setLoading(false);
       }
     );
 
-    // Cleanup listener on component unmount
     return () => {
       authListener?.subscription.unsubscribe();
     };
@@ -32,10 +31,8 @@ export const AuthProvider = ({ children }) => {
     user,
     loading,
     signOut: () => supabase.auth.signOut(),
-    // You can add fetchUserProfile here if needed globally
   };
 
-  // Don't render children until the initial auth state check is complete
   return (
     <AuthContext.Provider value={value}>
       {!loading && children}
@@ -43,7 +40,6 @@ export const AuthProvider = ({ children }) => {
   );
 };
 
-// Custom hook to use the auth context
 export const useAuth = () => {
   return useContext(AuthContext);
 };

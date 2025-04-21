@@ -8,24 +8,19 @@ from openai import OpenAI
 import boto3
 from botocore.exceptions import ClientError
 
-# Import blueprints
 from api.send_email import email_bp
 
-# Load environment variables from .env file
 load_dotenv()
 
 app = Flask(__name__)
-CORS(app)  # Enable CORS for frontend requests for only the /api/suggest endpoint
+CORS(app)
 
-# Register blueprints
 app.register_blueprint(email_bp)
 
-# Check for API key in environment variables.
 api_key = os.environ.get("OPENAI_API_KEY")
 if not api_key:
     print("Warning: OPENAI_API_KEY not found in environment variables")
 
-# Initialize OpenAI client for GPT-4 while using the latest model
 try:
     client = OpenAI(api_key=api_key)
     print("OpenAI client initialized successfully.")
@@ -33,7 +28,6 @@ except Exception as e:
     print(f"Error initializing OpenAI client: {e}")
     client = None
 
-# Check for AWS SES credentials
 aws_access_key = os.environ.get("AWS_ACCESS_KEY_ID")
 aws_secret_key = os.environ.get("AWS_SECRET_ACCESS_KEY")
 aws_region = os.environ.get("AWS_SES_REGION")
@@ -44,24 +38,18 @@ if not all([aws_access_key, aws_secret_key, aws_region, email_source]):
 else:
     print("AWS SES credentials loaded successfully.")
 
-# Add this function to handle serverless requests
+
 def handle_request(request):
     """Handle requests in a serverless environment"""
     with app.request_context(request):
-        # Get the path and method
         path = request.path
         method = request.method
 
-        # Route the request to the appropriate endpoint
         if path.startswith('/api/suggest') and method == 'POST':
             return get_suggestions()
         
-        # Add more routes as needed
-        
-        # Default response for unmatched routes
         return jsonify({"error": "Not found"}), 404
 
-# --- Helper Function ---
 def generate_suggestions(user_question: str, prompt_text: str, question_type: str = "text", choices: list = None) -> list:
     """
     Generate three improved versions of a survey question using GPT-4.
@@ -82,10 +70,9 @@ def generate_suggestions(user_question: str, prompt_text: str, question_type: st
     print(f"Question type: {question_type}, Choices: {choices}")
     
     try:
-        # Prepare the system prompt based on question type
+
         system_prompt = "You are an expert survey designer who helps improve survey questions."
         
-        # Prepare the user prompt based on question type
         choices_text = ""
         if question_type in ["multiple_choice", "checkbox", "dropdown"] and choices:
             choices_text = "\nOriginal answer choices:\n" + "\n".join([f"- {choice}" for choice in choices])
@@ -98,7 +85,6 @@ Please provide 3 completely different improved versions of the question.
 Each suggestion must follow the user's request.
 """
 
-        # Add specific instructions based on question type
         if question_type in ["multiple_choice", "checkbox", "dropdown"]:
             user_prompt += """
 For each suggestion, include a complete set of answer choices.
@@ -131,7 +117,6 @@ Format your response with exactly 3 numbered suggestions:
 
         user_prompt += "\nDo not include any explanations or additional text."
 
-        # Create the messages for GPT-4
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt}
@@ -153,13 +138,11 @@ Format your response with exactly 3 numbered suggestions:
         
         # Parse the response based on question type
         if question_type in ["multiple_choice", "checkbox", "dropdown"]:
-            # Split by numbered items (1., 2., 3.)
             suggestion_blocks = re.split(r'\n\s*\d+\.', raw_suggestions)
-            # Remove empty first element if it exists
             if suggestion_blocks and not suggestion_blocks[0].strip():
                 suggestion_blocks = suggestion_blocks[1:]
                 
-            for i, block in enumerate(suggestion_blocks[:3]):  # Limit to 3 suggestions
+            for i, block in enumerate(suggestion_blocks[:3]):
                 lines = block.strip().split('\n')
                 if not lines:
                     continue
@@ -180,47 +163,37 @@ Format your response with exactly 3 numbered suggestions:
                         "choices": choices
                     })
         else:
-            # For text questions, use a better approach to extract numbered suggestions
-            # First try to split by numbered items
             suggestion_blocks = re.split(r'\s*\d+\.\s*', raw_suggestions)
             
-            # Remove empty first element if it exists
             if suggestion_blocks and not suggestion_blocks[0].strip():
                 suggestion_blocks = suggestion_blocks[1:]
             
-            # Process each block
-            for block in suggestion_blocks[:3]:  # Limit to 3 suggestions
+            for block in suggestion_blocks[:3]:
                 text = block.strip()
-                # Remove any quotation marks that might be present
                 text = text.strip('"').strip("'")
                 
-                if text and len(text.split()) > 2:  # Ensure it's not too short
+                if text and len(text.split()) > 2:
                     suggestions.append({
                         "type": "question_improvement",
                         "text": text
                     })
-        
-        # If we somehow don't get any suggestions, generate a generic error
         if not suggestions:
             return [{"type": "error", "text": "Unable to generate suggestions. Please try a different request."}]
         
         print(f"Final suggestions: {suggestions}")
-        return suggestions[:3]  # Return at most 3 suggestions
+        return suggestions[:3]
     except Exception as e:
         print(f"Error during generation: {e}")
         return [{"type": "error", "text": f"Error generating suggestions: {str(e)}"}]
 
-# Function to send survey email
 def send_survey_email(to_address, survey_id, survey_title="Survey Invitation", survey_description="", survey_link=None):
     """
     Sends an email with a unique survey link to the recipient.
     """
     try:
-        # Generate unique survey link if not provided
         if not survey_link:
             survey_link = f"https://echoboard.us/survey/{survey_id}"
         
-        # Initialize SES client
         ses_client = boto3.client(
             'ses',
             region_name=os.getenv("AWS_SES_REGION"),
@@ -228,7 +201,6 @@ def send_survey_email(to_address, survey_id, survey_title="Survey Invitation", s
             aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY")
         )
         
-        # Create email HTML content
         html_content = f"""
         <html>
         <head>
@@ -263,7 +235,6 @@ def send_survey_email(to_address, survey_id, survey_title="Survey Invitation", s
         </html>
         """
         
-        # Send email
         response = ses_client.send_email(
             Source=os.getenv("EMAIL_SOURCE"),
             Destination={'ToAddresses': [to_address]},
@@ -302,10 +273,8 @@ def get_suggestions():
     print(f"Question type: {question_type}")
     print(f"Choices: {choices}")
 
-    # Generate suggestions
     suggestions = generate_suggestions(user_question, prompt_text, question_type, choices)
     
-    # Return the suggestions as JSON
     return jsonify({"suggestions": suggestions})
 
 @app.route('/api/send-survey-email', methods=['POST'])
@@ -314,7 +283,6 @@ def send_survey_email_handler():
     if not request.json:
         return jsonify({"status": "error", "message": "Missing request body"}), 400
     
-    # Get the request data
     emails = request.json.get('emails', [])
     survey_id = request.json.get('survey_id')
     survey_title = request.json.get('survey_title', "Survey Invitation")
@@ -328,7 +296,6 @@ def send_survey_email_handler():
     success_count = 0
     error_count = 0
     
-    # Send emails to each recipient
     for email in emails:
         result = send_survey_email(email, survey_id, survey_title, survey_description, survey_link)
         results.append(result)
@@ -362,10 +329,8 @@ def test_send_survey_email():
     response = send_survey_email(to_address, survey_id, survey_title, survey_description, survey_link)
     return jsonify(response)
 
-# For local development
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5001))
     app.run(host='0.0.0.0', port=port)
 else:
-    # For Vercel deployment
     app.debug = False

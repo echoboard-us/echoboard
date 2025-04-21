@@ -11,12 +11,10 @@ const SignUp = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // Get the site URL based on environment
   const getSiteURL = () => {
     if (process.env.REACT_APP_SITE_URL) {
       return process.env.REACT_APP_SITE_URL;
     }
-    // Fallback to window.location.origin for development
     return window.location.origin;
   };
 
@@ -26,7 +24,6 @@ const SignUp = () => {
     setLoading(true);
 
     try {
-      // Step 1: Sign up the user with Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
@@ -41,7 +38,6 @@ const SignUp = () => {
       if (authError) throw authError;
       if (!authData.user) throw new Error('Signup succeeded but no user data returned.');
 
-      // Step 2: Create the profile using the admin client
       if (!supabaseAdmin) {
         console.error('Service role client not configured');
         setError('Unable to create user profile. Please contact support.');
@@ -66,7 +62,6 @@ const SignUp = () => {
         return;
       }
 
-      // Success - show message and redirect
       alert('Signup successful! Please check your email to verify your account.');
       navigate('/signin');
 

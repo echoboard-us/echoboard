@@ -211,8 +211,6 @@ Produce the JSON spec now.
         }
         console.log('User obtained:', user.id);
 
-        // Fetch teams the user is part of
-        // Step 1: Get the IDs of teams the user is a member of
         const { data: teamMemberships, error: membershipError } = await supabase
           .from('team_members')
           .select('team_id')
@@ -223,17 +221,15 @@ Produce the JSON spec now.
           throw membershipError;
         }
 
-        // Extract the team IDs into an array
         const teamIds = teamMemberships ? teamMemberships.map(m => m.team_id) : [];
         console.log('Dashboard: User Team IDs:', teamIds);
 
         let teams = [];
         if (teamIds.length > 0) {
-          // Step 2: Fetch details for those teams using the array of IDs
           const { data: teamDetails, error: teamDetailsError } = await supabase
             .from('teams')
             .select('id, name')
-            .in('id', teamIds); // Use the array of IDs here
+            .in('id', teamIds); 
 
           if (teamDetailsError) {
             console.error('Error fetching team details:', teamDetailsError);
@@ -245,21 +241,19 @@ Produce the JSON spec now.
         }
 
         console.log("Dashboard: Teams fetched:", teams);
-        // Set team options for the dropdown
+
         setTeamOptions(teams);
         console.log("Dashboard: Team options set.");
 
-        // If teams exist and no team is currently selected, set the first one
         if (teams.length > 0) {
-          // Check currentTeam using a function update to get the latest state
           setCurrentTeam(prevTeam => {
             if (!prevTeam) { 
               const firstTeam = teams[0];
               console.log('Setting initial team:', firstTeam);
-              return firstTeam; // Return the new state
+              return firstTeam;
             }
             console.log('Dashboard: Current team already exists, not setting initial team.');
-            return prevTeam; // Keep the existing state
+            return prevTeam;
           });
         } else {
           console.log('User is not part of any teams.');
@@ -269,15 +263,14 @@ Produce the JSON spec now.
       }
     };
     fetchInitialData();
-  }, []); // Runs once on mount
+  }, []);
 
   useEffect(() => {
     if (currentTeam?.id) {
       console.log(`Team or Filter changed. Fetching data for team ${currentTeam.id} with filter ${surveyFilter}`);
-      fetchDataAndGenerateDashboard(currentTeam.id, '', surveyFilter); // Pass surveyFilter here
+      fetchDataAndGenerateDashboard(currentTeam.id, '', surveyFilter);
     } else {
       console.log("Team or Filter changed, but no current team selected.");
-      // Clear dashboard if no team is selected
       setStatCards([]);
       setDashboardCards([]);
     }
@@ -285,7 +278,7 @@ Produce the JSON spec now.
 
   const handleAiQuery = (e) => {
     e.preventDefault();
-    if (currentTeam?.id) { // Pass surveyFilter
+    if (currentTeam?.id) {
       fetchDataAndGenerateDashboard(currentTeam.id, aiQuery, surveyFilter);
     }
   };
@@ -296,7 +289,6 @@ Produce the JSON spec now.
 
   const handleExportToPDF = () => {
     try {
-      // Check if currentTeam is available
       if (!currentTeam) {
         alert("Please select a team first before exporting.");
         return;
@@ -307,8 +299,7 @@ Produce the JSON spec now.
         console.error("Dashboard container not found");
         return;
       }
-
-      // Create a filename based on team name
+e
       const teamName = typeof currentTeam === 'string' 
         ? currentTeam 
         : (currentTeam.name || 'Dashboard');
@@ -323,7 +314,6 @@ Produce the JSON spec now.
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
       };
       
-      // Remove the AI side panel temporarily for the PDF export
       const aiPanel = document.querySelector('.ai-side-panel');
       let originalDisplay = 'block';
       
@@ -339,7 +329,6 @@ Produce the JSON spec now.
         .from(element)
         .save()
         .then(() => {
-          // Restore the AI side panel after PDF generation
           if (aiPanel) {
             aiPanel.style.display = originalDisplay;
           }
@@ -364,24 +353,21 @@ Produce the JSON spec now.
     const selectedTeam = teamOptions.find(team => team.id === selectedTeamId);
     if (selectedTeam) {
       console.log("Dashboard: Setting current team:", selectedTeam);
-      setCurrentTeam(selectedTeam); // This should trigger the other useEffect
+      setCurrentTeam(selectedTeam);
     } else {
       console.error("Dashboard: Selected team not found in options", selectedTeamId);
     }
   };
 
-  // Add a function to handle date range changes
   const handleDateRangeChange = (newStartDate, newEndDate) => {
     setStartDate(newStartDate);
     setEndDate(newEndDate);
     setShowDatePicker(false);
     
-    // If a team is selected, you could refresh the dashboard data with the new date range
-    // This is optional and depends on your application's requirements
+
     console.log(`Date range changed: ${newStartDate.toLocaleDateString()} - ${newEndDate.toLocaleDateString()}`);
   };
 
-  // Add a function to set predefined date ranges
   const setDateRange = (range) => {
     const end = new Date();
     let start = new Date();

@@ -5,7 +5,6 @@ import { supabase } from '../supabaseClient';
  * @returns {string} The API base URL
  */
 const getApiBaseUrl = () => {
-  // Check if we're in development or production
   const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
   
   if (isLocalDev) {
@@ -13,7 +12,6 @@ const getApiBaseUrl = () => {
     return 'http://localhost:5001';
   } else {
     // Production environment - use the same domain as the frontend
-    // Vercel will route /api/* requests to the backend
     return window.location.origin;
   }
 };
@@ -90,26 +88,21 @@ export const sendSurveyToTeam = async (teamId, surveyId) => {
       // Continue with default link if there's an error
     }
     
-    // Get the site URL based on environment
     const siteUrl = getSiteUrl();
     
-    // Build the survey link using the token or use a fallback
     let surveyLink;
     if (shareLinks && shareLinks.length > 0 && shareLinks[0].token) {
       // Use the correct format: /survey/{survey_id}?token={token}
       surveyLink = `${siteUrl}/survey/${surveyId}?token=${shareLinks[0].token}`;
     } else {
-      // Fallback to a direct survey link
       surveyLink = `${siteUrl}/survey/${surveyId}`;
     }
     
     console.log('Using survey link:', surveyLink);
     
-    // Get the API base URL based on environment
     const apiBaseUrl = getApiBaseUrl();
     console.log('Using API base URL:', apiBaseUrl);
     
-    // Call the backend API to send emails
     const response = await fetch(`${apiBaseUrl}/api/send-survey-email`, {
       method: 'POST',
       headers: {

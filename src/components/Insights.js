@@ -10,11 +10,9 @@ import "./Insights.css";
 
 const InsightsModal = ({ survey, onClose }) => {
   const [loading, setLoading] = useState(true);
-  // eslint-disable-next-line no-unused-vars
   const [insights, setInsights] = useState(null);
   const [aiAnalysis, setAiAnalysis] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
-  // eslint-disable-next-line no-unused-vars
   const [responseData, setResponseData] = useState([]);
   const [newResponseAlert, setNewResponseAlert] = useState(false);
   
@@ -238,7 +236,7 @@ const InsightsModal = ({ survey, onClose }) => {
                         <h4>Key Findings</h4>
                         <div className="findings-list">
                           {aiAnalysis.structured_analysis.key_findings?.map((finding, index) => {
-                            // Replace any question IDs in the title and description
+
                             let titleText = finding.title;
                             let descriptionText = finding.description;
                             
@@ -249,7 +247,7 @@ const InsightsModal = ({ survey, onClose }) => {
                               if (titleText) {
                                 titleText = titleText.replace(new RegExp(idStr, 'g'), `"${q.question}"`);
                                 titleText = titleText.replace(uuidPattern, (match) => {
-                                  // Try to extract the UUID
+
                                   const uuid = match.replace('Question ', '');
                                   const matchedQuestion = survey.questions.find(q => q.id === uuid);
                                   return matchedQuestion ? `"${matchedQuestion.question}"` : match;
@@ -259,7 +257,7 @@ const InsightsModal = ({ survey, onClose }) => {
                               if (descriptionText) {
                                 descriptionText = descriptionText.replace(new RegExp(idStr, 'g'), `"${q.question}"`);
                                 descriptionText = descriptionText.replace(uuidPattern, (match) => {
-                                  // Try to extract the UUID
+
                                   const uuid = match.replace('Question ', '');
                                   const matchedQuestion = survey.questions.find(q => q.id === uuid);
                                   return matchedQuestion ? `"${matchedQuestion.question}"` : match;
@@ -267,7 +265,7 @@ const InsightsModal = ({ survey, onClose }) => {
                               }
                             });
                             
-                            // Also process supporting stats
+
                             const processedStats = finding.supporting_stats?.map(stat => {
                               let statText = stat;
                               survey.questions.forEach(q => {
@@ -276,8 +274,7 @@ const InsightsModal = ({ survey, onClose }) => {
                                   statText = statText.replace(new RegExp(idStr, 'g'), `"${q.question}"`);
                                 }
                               });
-                              
-                              // Also try to match UUID pattern
+
                               const uuidPattern = new RegExp(`Question [a-f0-9-]{36}`, 'g');
                               statText = statText.replace(uuidPattern, (match) => {
                                 const uuid = match.replace('Question ', '');
@@ -318,7 +315,7 @@ const InsightsModal = ({ survey, onClose }) => {
                               <h5>By Question:</h5>
                               <ul>
                                 {aiAnalysis.structured_analysis.sentiment_summary.by_question.map((item, i) => {
-                                  // Try both integer parsing and direct matching for UUID-style IDs
+
                                   const question = survey.questions.find(q => 
                                     q.id === parseInt(item.question_id) || 
                                     q.id === item.question_id ||
@@ -344,11 +341,10 @@ const InsightsModal = ({ survey, onClose }) => {
                         <h4>Patterns & Trends</h4>
                         <div className="patterns-list">
                           {aiAnalysis.structured_analysis.patterns_and_trends?.map((pattern, index) => {
-                            // If the pattern contains a question_id, find the actual question text
                             let patternText = pattern.pattern;
                             let detailsText = pattern.details;
                             
-                            // Handle UUID-style question IDs
+
                             const uuidPattern = new RegExp(`Question [a-f0-9-]{36}`, 'g');
                             
                             if (patternText) {
@@ -359,7 +355,7 @@ const InsightsModal = ({ survey, onClose }) => {
                                 }
                               });
                               
-                              // Also try to match UUID pattern
+
                               patternText = patternText.replace(uuidPattern, (match) => {
                                 const uuid = match.replace('Question ', '');
                                 const matchedQuestion = survey.questions.find(q => q.id === uuid);
@@ -375,7 +371,7 @@ const InsightsModal = ({ survey, onClose }) => {
                                 }
                               });
                               
-                              // Also try to match UUID pattern
+
                               detailsText = detailsText.replace(uuidPattern, (match) => {
                                 const uuid = match.replace('Question ', '');
                                 const matchedQuestion = survey.questions.find(q => q.id === uuid);
@@ -398,11 +394,10 @@ const InsightsModal = ({ survey, onClose }) => {
                         <h4>Statistical Highlights</h4>
                         <div className="stats-list">
                           {aiAnalysis.structured_analysis.statistical_highlights?.map((stat, index) => {
-                            // Replace any question IDs in the metric or context
+
                             let metricText = stat.metric;
                             let contextText = stat.context;
                             
-                            // Handle UUID-style question IDs
                             const uuidPattern = new RegExp(`Question [a-f0-9-]{36}`, 'g');
                             
                             if (metricText) {
@@ -413,7 +408,6 @@ const InsightsModal = ({ survey, onClose }) => {
                                 }
                               });
                               
-                              // Also try to match UUID pattern
                               metricText = metricText.replace(uuidPattern, (match) => {
                                 const uuid = match.replace('Question ', '');
                                 const matchedQuestion = survey.questions.find(q => q.id === uuid);
@@ -428,8 +422,6 @@ const InsightsModal = ({ survey, onClose }) => {
                                   contextText = contextText.replace(new RegExp(idStr, 'g'), `"${q.question}"`);
                                 }
                               });
-                              
-                              // Also try to match UUID pattern
                               contextText = contextText.replace(uuidPattern, (match) => {
                                 const uuid = match.replace('Question ', '');
                                 const matchedQuestion = survey.questions.find(q => q.id === uuid);
@@ -453,17 +445,14 @@ const InsightsModal = ({ survey, onClose }) => {
                         <h4>Areas Needing Attention</h4>
                         <div className="attention-list">
                           {aiAnalysis.structured_analysis.areas_for_attention?.map((area, index) => {
-                            // Try to find the question using various ID formats
                             const question = survey.questions.find(q => 
                               q.id === parseInt(area.question_id) || 
                               q.id === area.question_id ||
                               q.id.toString() === area.question_id
                             );
                             
-                            // Also check if the issue text contains question IDs and replace them
                             let issueText = area.issue;
                             
-                            // Handle UUID-style question IDs
                             const uuidPattern = new RegExp(`Question [a-f0-9-]{36}`, 'g');
                             
                             if (issueText) {
