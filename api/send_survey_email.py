@@ -12,7 +12,7 @@ send_survey_email_bp = Blueprint('send_survey_email', __name__)
 
 @send_survey_email_bp.route('/api/send-survey-email', methods=['POST'])
 def send_survey_email_handler():
-    """API endpoint to send survey emails to multiple recipients."""
+    """API endpoint to send survey emails to multiple recipients in order to """
     if not request.json:
         return jsonify({"status": "error", "message": "Missing request body"}), 400
     
