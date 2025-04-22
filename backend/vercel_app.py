@@ -4,10 +4,8 @@ import boto3
 from botocore.exceptions import ClientError
 import os
 
-# Load environment variables from .env file
 load_dotenv()
 
-# Check for AWS SES credentials
 aws_access_key = os.environ.get("AWS_ACCESS_KEY_ID")
 aws_secret_key = os.environ.get("AWS_SECRET_ACCESS_KEY")
 aws_region = os.environ.get("AWS_SES_REGION")
@@ -96,8 +94,4 @@ def handler(request):
         return app.handle_request(request)
     elif request.method == "GET":
         return app.handle_request(request)
-    return app.handle_request(request) 
-
-    # deploy with vercel make changes to deploy
-    # vercel --prod...
-    # vercel --prod...
+    return app.handle_request(request)

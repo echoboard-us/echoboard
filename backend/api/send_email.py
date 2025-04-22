@@ -11,7 +11,6 @@ email_bp = Blueprint('email', __name__)
 
 @email_bp.route('/api/send-survey-email', methods=['POST'])
 def send_survey_email_handler():
-    """API endpoint to send survey emails to multiple recipients."""
     if not request.json:
         return jsonify({"status": "error", "message": "Missing request body"}), 400
     
@@ -64,9 +63,6 @@ def test_send_survey_email():
     return jsonify(response)
 
 def send_survey_email(to_address, survey_id, survey_title="Survey Invitation", survey_description="", survey_link=None):
-    """
-    Sends an email with a unique survey link to the recipient.
-    """
     try:
         # Generate unique survey link if not provided
         if not survey_link:

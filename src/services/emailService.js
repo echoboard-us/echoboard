@@ -8,10 +8,8 @@ const getApiBaseUrl = () => {
   const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
   
   if (isLocalDev) {
-    // Local development - use localhost with Flask port
     return 'http://localhost:5001';
   } else {
-    // Production environment - use the same domain as the frontend
     return window.location.origin;
   }
 };
@@ -21,14 +19,11 @@ const getApiBaseUrl = () => {
  * @returns {string} The site URL
  */
 const getSiteUrl = () => {
-  // Check if we're in development or production
   const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
   
   if (isLocalDev) {
-    // Use the environment variable for local development
     return process.env.REACT_APP_SITE_URL || window.location.origin;
   } else {
-    // In production, always use www.echoboard.us
     return 'https://www.echoboard.us';
   }
 };
@@ -41,7 +36,6 @@ const getSiteUrl = () => {
  */
 export const sendSurveyToTeam = async (teamId, surveyId) => {
   try {
-    // 1. Get the survey details
     const { data: survey, error: surveyError } = await supabase
       .from('surveys')
       .select('title, description')
@@ -50,7 +44,6 @@ export const sendSurveyToTeam = async (teamId, surveyId) => {
     
     if (surveyError) throw surveyError;
     
-    // 2. Get all team members' emails
     const { data: teamMembers, error: teamError } = await supabase
       .from('team_members')
       .select(`
@@ -75,7 +68,6 @@ export const sendSurveyToTeam = async (teamId, surveyId) => {
       };
     }
     
-    // 4. Get the most recent survey share token from the survey_share_links table
     const { data: shareLinks, error: shareLinksError } = await supabase
       .from('survey_share_links')
       .select('token, created_at')
@@ -85,14 +77,12 @@ export const sendSurveyToTeam = async (teamId, surveyId) => {
       
     if (shareLinksError) {
       console.warn('Error fetching share token:', shareLinksError);
-      // Continue with default link if there's an error
     }
     
     const siteUrl = getSiteUrl();
     
     let surveyLink;
     if (shareLinks && shareLinks.length > 0 && shareLinks[0].token) {
-      // Use the correct format: /survey/{survey_id}?token={token}
       surveyLink = `${siteUrl}/survey/${surveyId}?token=${shareLinks[0].token}`;
     } else {
       surveyLink = `${siteUrl}/survey/${surveyId}`;
