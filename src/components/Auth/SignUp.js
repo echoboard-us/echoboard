@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase, supabaseAdmin } from '../../supabaseClient';
-import './Auth.css';
+import { FaEnvelope, FaLock, FaUser } from 'react-icons/fa';
+import '../Auth.css';
 
 const SignUp = () => {
   const navigate = useNavigate();
@@ -22,29 +23,22 @@ const SignUp = () => {
     e.preventDefault();
     setError('');
     setLoading(true);
-
     try {
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          data: {
-            full_name: fullName,
-          },
+          data: { full_name: fullName },
           emailRedirectTo: `${getSiteURL()}/signin`,
         },
       });
-
       if (authError) throw authError;
       if (!authData.user) throw new Error('Signup succeeded but no user data returned.');
-
       if (!supabaseAdmin) {
-        console.error('Service role client not configured');
         setError('Unable to create user profile. Please contact support.');
         setLoading(false);
         return;
       }
-
       const { error: insertError } = await supabaseAdmin
         .from('profiles')
         .insert({
@@ -54,74 +48,73 @@ const SignUp = () => {
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         });
-
       if (insertError) {
-        console.error('Error creating user profile:', insertError);
         setError(`Signup successful, but failed to save user profile: ${insertError.message}. Please contact support.`);
         setLoading(false);
         return;
       }
-
       alert('Signup successful! Please check your email to verify your account.');
       navigate('/signin');
-
     } catch (error) {
-      console.error('Signup Error:', error);
       setError(error.message || 'An unexpected error occurred during sign up.');
     } finally {
-      if (loading) {
-        setLoading(false);
-      }
+      setLoading(false);
     }
   };
 
   return (
-    <div className="auth-container">
-      <div className="auth-form-wrapper">
-        <h2>Create Your Account</h2>
-        {error && <div className="auth-error">{error}</div>}
-        <form onSubmit={handleSignUp} className="auth-form">
-          <div className="auth-input-group">
-            <label htmlFor="full-name">Full Name</label>
-            <input
-              id="full-name"
-              type="text"
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-              required
-              placeholder="Enter your full name"
-            />
-          </div>
-          <div className="auth-input-group">
-            <label htmlFor="email">Email</label>
-            <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              placeholder="Enter your email"
-            />
-          </div>
-          <div className="auth-input-group">
-            <label htmlFor="password">Password</label>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              placeholder="Create a password (min. 6 characters)"
-              minLength="6"
-            />
-          </div>
-          <button type="submit" className="auth-button" disabled={loading}>
-            {loading ? 'Signing Up...' : 'Sign Up'}
-          </button>
-        </form>
-        <p className="auth-link">
-          Already have an account? <Link to="/signin">Sign In</Link>
-        </p>
+    <div className="auth-bg-tech">
+      <div className="auth-center-wrapper">
+        <div className="auth-card-dark">
+          <Link to="/">
+            <img src="/echoboard logo transparent.png" alt="EchoBoard Logo" className="auth-logo auth-logo-visible" />
+          </Link>
+          <h2 className="auth-title">Create Account</h2>
+          <p className="auth-subtext">Already have an account? <Link to="/signin">Sign in</Link></p>
+          {error && <div className="auth-error">{error}</div>}
+          <form onSubmit={handleSignUp} className="auth-form-modern">
+            <div className="auth-input-modern">
+              <FaUser className="auth-input-icon" />
+              <input
+                id="full-name"
+                type="text"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                required
+                placeholder="Full name"
+                autoComplete="name"
+              />
+            </div>
+            <div className="auth-input-modern">
+              <FaEnvelope className="auth-input-icon" />
+              <input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                placeholder="Email Address"
+                autoComplete="email"
+              />
+            </div>
+            <div className="auth-input-modern">
+              <FaLock className="auth-input-icon" />
+              <input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                placeholder="Password"
+                minLength="6"
+                autoComplete="new-password"
+              />
+            </div>
+            <button type="submit" className="auth-button-purple" disabled={loading}>
+              {loading ? 'Signing Up...' : 'Sign Up'}
+            </button>
+          </form>
+        </div>
       </div>
     </div>
   );

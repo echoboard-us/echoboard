@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { supabase } from '../../supabaseClient'; // Adjust path as needed
-import './Auth.css';
+import { supabase } from '../../supabaseClient';
+import { FaEnvelope, FaLock } from 'react-icons/fa';
+import '../Auth.css';
 
 const SignIn = () => {
   const navigate = useNavigate();
@@ -14,21 +15,11 @@ const SignIn = () => {
     e.preventDefault();
     setError('');
     setLoading(true);
-
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
-
-      // On successful sign-in, Supabase Auth handles the session.
-      // The AuthProvider/App component will detect the session change and redirect.
-      navigate('/dashboard'); // Redirect to dashboard after successful sign in
-
+      navigate('/dashboard');
     } catch (error) {
-      console.error('SignIn Error:', error);
       setError(error.message || 'Invalid login credentials.');
     } finally {
       setLoading(false);
@@ -36,40 +27,45 @@ const SignIn = () => {
   };
 
   return (
-    <div className="auth-container">
-      <div className="auth-form-wrapper">
-        <h2>Sign In</h2>
-        {error && <div className="auth-error">{error}</div>}
-        <form onSubmit={handleSignIn} className="auth-form">
-          <div className="auth-input-group">
-            <label htmlFor="email">Email</label>
-            <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              placeholder="Enter your email"
-            />
-          </div>
-          <div className="auth-input-group">
-            <label htmlFor="password">Password</label>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              placeholder="Enter your password"
-            />
-          </div>
-          <button type="submit" className="auth-button" disabled={loading}>
-            {loading ? 'Signing In...' : 'Sign In'}
-          </button>
-        </form>
-        <p className="auth-link">
-          Don't have an account? <Link to="/signup">Sign Up</Link>
-        </p>
+    <div className="auth-bg-tech">
+      <div className="auth-center-wrapper">
+        <div className="auth-card-dark">
+          <Link to="/">
+            <img src="/echoboard logo transparent.png" alt="EchoBoard Logo" className="auth-logo auth-logo-visible" />
+          </Link>
+          <h2 className="auth-title">Welcome Back</h2>
+          <p className="auth-subtext">Don't have an account yet? <Link to="/signup">Sign up</Link></p>
+          {error && <div className="auth-error">{error}</div>}
+          <form onSubmit={handleSignIn} className="auth-form-modern">
+            <div className="auth-input-modern">
+              <FaEnvelope className="auth-input-icon" />
+              <input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                placeholder="Email Address"
+                autoComplete="email"
+              />
+            </div>
+            <div className="auth-input-modern">
+              <FaLock className="auth-input-icon" />
+              <input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                placeholder="Password"
+                autoComplete="current-password"
+              />
+            </div>
+            <button type="submit" className="auth-button-blue" disabled={loading}>
+              {loading ? 'Signing In...' : 'Login'}
+            </button>
+          </form>
+        </div>
       </div>
     </div>
   );
