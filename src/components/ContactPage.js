@@ -1,10 +1,54 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import './ContactPage.css';
-import { FaLinkedin, FaInstagram, FaDiscord, FaXTwitter } from 'react-icons/fa6';
-import { TbDeviceAnalytics, TbBrain, TbChartBar, TbMail } from 'react-icons/tb';
+import { FaLinkedin } from 'react-icons/fa6';
+import { supabase } from '../supabaseClient'; // Ensure this import is correct
 
 const ContactPage = () => {
+  const [formData, setFormData] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    message: ''
+  });
+  const [status, setStatus] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const { firstName, lastName, email, phone, message } = formData;
+    if (!firstName || !lastName || !email || !message) {
+      setStatus('Please fill out all required fields.');
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      const { error } = await supabase
+        .from('contacts')
+        .insert([{
+          first_name: firstName,
+          last_name: lastName,
+          email: email,
+          phone_number: phone,
+          message: message
+        }]);
+      if (error) throw error;
+      setStatus('Message sent! We will get back to you soon.');
+      setFormData({ firstName: '', lastName: '', email: '', phone: '', message: '' });
+    } catch (error) {
+      console.error('Error submitting form:', error);
+      setStatus('Failed to send message. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <div className="landing-container">
       <div className="landing-content">
@@ -32,19 +76,56 @@ const ContactPage = () => {
         {/* Contact Content */}
         <div className="contact-container">
           <h1 className="contact-title">Lets Have a Chat <span role="img" aria-label="wave">👋</span></h1>
-          <p className="contact-subtitle">Questions about our products/services, orders, or just want to say hello? We're here to help</p>
-          <form className="contact-form">
+          <p className="contact-subtitle">Questions about our products/services or just want to say hello? We're here to help.</p>
+          <form onSubmit={handleSubmit} className="contact-form">
             <div className="form-row">
-              <input type="text" placeholder="First name" name="firstName" autoComplete="given-name" />
-              <input type="text" placeholder="Last name" name="lastName" autoComplete="family-name" />
+              <input
+                type="text"
+                name="firstName"
+                placeholder="First Name"
+                value={formData.firstName}
+                onChange={handleChange}
+                required
+              />
+              <input
+                type="text"
+                name="lastName"
+                placeholder="Last Name"
+                value={formData.lastName}
+                onChange={handleChange}
+                required
+              />
             </div>
             <div className="form-row">
-              <input type="email" placeholder="Email" name="email" autoComplete="email" />
-              <input type="text" placeholder="Phone number" name="phone" autoComplete="tel" />
+              <input
+                type="email"
+                name="email"
+                placeholder="Email"
+                value={formData.email}
+                onChange={handleChange}
+                required
+              />
+              <input
+                type="tel"
+                name="phone"
+                placeholder="Phone Number"
+                value={formData.phone}
+                onChange={handleChange}
+              />
             </div>
-            <textarea placeholder="Message" name="message" rows={4} />
-            <button type="submit" className="contact-send-btn">Send message</button>
+            <textarea
+              name="message"
+              placeholder="Your Message"
+              value={formData.message}
+              onChange={handleChange}
+              required
+              rows={4}
+            />
+            <button type="submit" className="contact-send-btn" disabled={isSubmitting}>
+              {isSubmitting ? 'Sending...' : 'Send Message'}
+            </button>
           </form>
+          {status && <p className="status-message">{status}</p>}
           <div className="contact-socials">
             <a href="https://www.linkedin.com/company/echoboard-us" target="_blank" rel="noopener noreferrer" className="contact-social"><FaLinkedin /></a>
           </div>

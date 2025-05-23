@@ -1,0 +1,12 @@
+.nav-link {
+  color: var(--text-primary);
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.2s;
+}
+
+/* White text for Pricing and Contact on landing, contact, and pricing pages */
+body:not(.dashboard-page) .nav-link[href="/pricing"],
+body:not(.dashboard-page) .nav-link[href="/contact"] {
+  color: white !important;
+} 
