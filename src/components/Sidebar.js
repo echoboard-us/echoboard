@@ -27,7 +27,7 @@ const Sidebar = () => {
     <aside className="sidebar">
       {/* Sidebar Header */}
       <div className="sidebar-header">
-        <img src="/echoboard logo transparent.png" alt="Echo Board" className="sidebar-logo" />
+        <img src="/EchoBoardLogo.png" alt="Echo Board" className="sidebar-logo" />
       </div>
 
       {/* Sidebar Navigation */}

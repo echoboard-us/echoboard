@@ -31,7 +31,7 @@ const SignIn = () => {
       <div className="auth-center-wrapper">
         <div className="auth-card-dark">
           <Link to="/">
-            <img src="/echoboard logo transparent.png" alt="EchoBoard Logo" className="auth-logo auth-logo-visible" />
+            <img src="/EchoBoardLogo.png" alt="EchoBoard Logo" className="auth-logo auth-logo-visible" />
           </Link>
           <h2 className="auth-title">Welcome Back</h2>
           <p className="auth-subtext">Don't have an account yet? <Link to="/signup">Sign up</Link></p>

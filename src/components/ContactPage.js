@@ -58,7 +58,7 @@ const ContactPage = () => {
             <Link to="/" className="logo-link" style={{ display: 'flex', alignItems: 'center', textDecoration: 'none' }}>
               <div className="logo-icon-container">
                 <img 
-                  src="/echoboard logo transparent.png" 
+                  src="/icon-transparent.png" 
                   alt="EchoBoard Logo" 
                   className="landing-logo"
                 />
@@ -136,7 +136,7 @@ const ContactPage = () => {
           <div className="footer-content">
             <div className="footer-logo">
               <img 
-                src="/echoboard logo transparent.png" 
+                src="/EchoBoardLogo.png" 
                 alt="EchoBoard Logo" 
                 className="footer-logo-img"
               />

@@ -67,7 +67,7 @@ const SignUp = () => {
       <div className="auth-center-wrapper">
         <div className="auth-card-dark">
           <Link to="/">
-            <img src="/echoboard logo transparent.png" alt="EchoBoard Logo" className="auth-logo auth-logo-visible" />
+            <img src="/EchoBoardLogo.png" alt="EchoBoard Logo" className="auth-logo auth-logo-visible" />
           </Link>
           <h2 className="auth-title">Create Account</h2>
           <p className="auth-subtext">Already have an account? <Link to="/signin">Sign in</Link></p>
