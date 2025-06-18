@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import './ContactPage.css';
 import { FaLinkedin } from 'react-icons/fa6';
 import { supabase } from '../supabaseClient'; // Ensure this import is correct
+import { useAuth } from '../context/AuthContext';
 
 const ContactPage = () => {
   const [formData, setFormData] = useState({
@@ -14,6 +15,51 @@ const ContactPage = () => {
   });
   const [status, setStatus] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { user, signOut } = useAuth();
+  const [betaApproved, setBetaApproved] = useState(null);
+  const [checking, setChecking] = useState(true);
+  const [role, setRole] = useState(null);
+
+  useEffect(() => {
+    const fetchBetaApproved = async () => {
+      if (user) {
+        const { data: profile, error } = await supabase
+          .from('profiles')
+          .select('beta_approved')
+          .eq('id', user.id)
+          .single();
+        if (!error && profile) {
+          setBetaApproved(profile.beta_approved);
+        } else {
+          setBetaApproved(false);
+        }
+      } else {
+        setBetaApproved(null);
+      }
+      setChecking(false);
+    };
+    fetchBetaApproved();
+  }, [user]);
+
+  useEffect(() => {
+    const fetchRole = async () => {
+      if (user) {
+        const { data: profile, error } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', user.id)
+          .single();
+        if (!error && profile) {
+          setRole(profile.role);
+        } else {
+          setRole(null);
+        }
+      } else {
+        setRole(null);
+      }
+    };
+    fetchRole();
+  }, [user]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -67,9 +113,18 @@ const ContactPage = () => {
             </Link>
           </div>
           <div className="nav-links">
-            <Link to="/pricing" className="nav-link">Pricing</Link>
+            {/* <Link to="/pricing" className="nav-link">Pricing</Link> */}
             <Link to="/contact" className="nav-link">Contact</Link>
-            <Link to="/signin" className="sign-in-button">Sign In</Link>
+            <Link to="/signin" className="cta-button">Sign In</Link>
+            {!user || role === 'new' ? (
+              <button className="sign-in-button" onClick={() => window.location.href = '/#early-access'}>Get Early Access</button>
+            ) : null}
+            {(role === 'approved' || role === 'admin') && (
+              <button className="sign-in-button" onClick={signOut}>Sign Out</button>
+            )}
+            {role === 'admin' && (
+              <Link to="/admin/beta" className="nav-link">Admin</Link>
+            )}
           </div>
         </nav>
 
@@ -146,7 +201,7 @@ const ContactPage = () => {
               <a href="https://www.linkedin.com/company/echoboard-us" target="_blank" rel="noopener noreferrer" className="footer-link linkedin-link">
                 <FaLinkedin style={{ verticalAlign: 'middle', fontSize: '1.3em', marginRight: '0.5em' }} />
               </a>
-              <Link to="/pricing" className="footer-link">Pricing</Link>
+              {/* <Link to="/pricing" className="footer-link">Pricing</Link> */}
               <Link to="/contact" className="footer-link">Contact</Link>
             </div>
           </div>
