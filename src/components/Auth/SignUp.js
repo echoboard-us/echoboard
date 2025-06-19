@@ -93,7 +93,7 @@ const SignUp = () => {
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
               required
-              placeholder="Full name"
+              placeholder="Full Name"
               autoComplete="name"
             />
           </div>
@@ -105,7 +105,7 @@ const SignUp = () => {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              placeholder="Email address"
+              placeholder="Email"
               autoComplete="email"
             />
           </div>
@@ -117,7 +117,7 @@ const SignUp = () => {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              placeholder="Create a password"
+              placeholder="Password"
               minLength="6"
               autoComplete="new-password"
             />

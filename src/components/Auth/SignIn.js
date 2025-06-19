@@ -59,7 +59,7 @@ const SignIn = () => {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              placeholder="Enter your email"
+              placeholder="Email"
               autoComplete="email"
             />
           </div>
@@ -71,7 +71,7 @@ const SignIn = () => {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              placeholder="Enter your password"
+              placeholder="Password"
               autoComplete="current-password"
             />
           </div>
