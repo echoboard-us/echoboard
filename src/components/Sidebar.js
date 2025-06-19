@@ -7,8 +7,7 @@ import {
   FaLightbulb,
   FaUsers,
   FaSignOutAlt, 
-  FaUserCircle,
-  FaCog
+  FaUserCircle
 } from "react-icons/fa";
 import "./Sidebar.css";
 

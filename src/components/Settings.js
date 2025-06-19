@@ -26,7 +26,6 @@ const Settings = () => {
     newEmail: '',
     currentPassword: ''
   });
-  const [showEmailPassword, setShowEmailPassword] = useState(false);
 
   const handlePasswordChange = async (e) => {
     e.preventDefault();
