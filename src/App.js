@@ -14,6 +14,7 @@ import Insights from "./components/Insights";
 import Survey from './components/Survey';
 import SurveyResponse from "./components/SurveyResponse";
 import Teams from './components/Teams';
+import Settings from './components/Settings';
 import SignUp from './components/Auth/SignUp';
 import SignIn from './components/Auth/SignIn';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -106,7 +107,7 @@ const MainAppLayout = () => {
             <Route path="insights" element={<ProtectedRoute><Insights /></ProtectedRoute>} />
             <Route path="surveys" element={<ProtectedRoute><Survey /></ProtectedRoute>} />
             <Route path="teams" element={<ProtectedRoute><Teams /></ProtectedRoute>} />
-            {/* Analytics route removed */}
+            <Route path="settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
             
             <Route path="*" element={<Navigate to="/dashboard" replace />} /> 
           </Routes>

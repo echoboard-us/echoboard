@@ -1,5 +1,5 @@
 import React from "react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext"; 
 import {
   FaTachometerAlt,
@@ -7,12 +7,14 @@ import {
   FaLightbulb,
   FaUsers,
   FaSignOutAlt, 
-  FaUserCircle  
+  FaUserCircle,
+  FaCog
 } from "react-icons/fa";
 import "./Sidebar.css";
 
 const Sidebar = () => {
   const { user, signOut } = useAuth(); 
+  const navigate = useNavigate();
 
   const handleLogout = async () => {
     try {
@@ -21,6 +23,10 @@ const Sidebar = () => {
     } catch (error) {
       console.error('Error logging out:', error);
     }
+  };
+
+  const handleSettingsClick = () => {
+    navigate('/settings');
   };
 
   return (
@@ -51,13 +57,15 @@ const Sidebar = () => {
         {/* Analytics link removed */}
       </nav>
 
-      {/* User Info and Logout Section */}
+      {/* User Info and Actions Section */}
       <div className="sidebar-footer">
-        <div className="user-info">
-          <FaUserCircle className="user-icon-sidebar" />
-          <span className="user-email-sidebar">
-            {user?.user_metadata?.full_name || user?.email || 'User'}
-          </span>
+        <div className="user-info" onClick={handleSettingsClick}>
+          <div className="user-info-main">
+            <FaUserCircle className="user-icon-sidebar" />
+            <span className="user-email-sidebar">
+              {user?.user_metadata?.full_name || user?.email || 'User'}
+            </span>
+          </div>
         </div>
         <button onClick={handleLogout} className="logout-button-sidebar">
           <FaSignOutAlt className="logout-icon-sidebar" />

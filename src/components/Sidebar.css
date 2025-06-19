@@ -81,24 +81,64 @@
 .user-info {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   margin-bottom: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  background: #f4f6fa;
+  box-shadow: 0 2px 8px rgba(79, 140, 255, 0.07);
+  cursor: pointer;
+  transition: background 0.2s, box-shadow 0.2s;
+  position: relative;
+}
+
+.user-info:hover {
+  background: #e8f0ff;
+  box-shadow: 0 4px 16px rgba(79, 140, 255, 0.13);
+}
+
+.user-info-main {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
 }
 
 .user-icon-sidebar {
-  font-size: 1.5rem;
-  color: var(--text-secondary);
-  margin-right: 0.75rem;
+  font-size: 2.1rem;
+  color: var(--primary-color);
+  margin-bottom: 0.2rem;
 }
 
 .user-email-sidebar {
-  font-size: 0.875rem;
-  color: var(--text-primary);
-  font-weight: 500;
-  /* Prevent email from wrapping or overflowing */
+  font-size: 1rem;
+  color: #23234a;
+  font-weight: 600;
+  text-align: center;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 150px; /* Adjust as needed */
+  max-width: 140px;
+}
+
+.settings-icon-sidebar {
+  font-size: 1.15rem;
+  color: #64748b;
+  background: #fff;
+  border-radius: 50%;
+  padding: 0.45rem;
+  margin-left: 1rem;
+  box-shadow: 0 1px 4px rgba(79, 140, 255, 0.10);
+  transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.user-info:hover .settings-icon-sidebar {
+  background: #4f8cff;
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(79, 140, 255, 0.18);
 }
 
 .logout-button-sidebar {
