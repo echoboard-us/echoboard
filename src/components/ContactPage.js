@@ -16,30 +16,7 @@ const ContactPage = () => {
   const [status, setStatus] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { user, signOut } = useAuth();
-  const [betaApproved, setBetaApproved] = useState(null);
-  const [checking, setChecking] = useState(true);
   const [role, setRole] = useState(null);
-
-  useEffect(() => {
-    const fetchBetaApproved = async () => {
-      if (user) {
-        const { data: profile, error } = await supabase
-          .from('profiles')
-          .select('beta_approved')
-          .eq('id', user.id)
-          .single();
-        if (!error && profile) {
-          setBetaApproved(profile.beta_approved);
-        } else {
-          setBetaApproved(false);
-        }
-      } else {
-        setBetaApproved(null);
-      }
-      setChecking(false);
-    };
-    fetchBetaApproved();
-  }, [user]);
 
   useEffect(() => {
     const fetchRole = async () => {

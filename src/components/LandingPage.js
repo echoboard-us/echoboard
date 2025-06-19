@@ -6,8 +6,6 @@ import { TbBrain, TbChartBar, TbTrendingUp, TbBolt, TbShare, TbUsers, TbMessageC
 import { FaLinkedin, FaRegCheckCircle, FaRegStar, FaUser } from 'react-icons/fa';
 import { useAuth } from '../context/AuthContext';
 
-const mockUser = null; // Replace with useUser() or useAuth() logic when available
-
 const LandingPage = () => {
   // Modal state
   const [showModal, setShowModal] = useState(false);
@@ -18,7 +16,6 @@ const LandingPage = () => {
   const [navbarOpacity, setNavbarOpacity] = useState(1);
   const { user, signOut } = useAuth();
   const [betaApproved, setBetaApproved] = useState(null);
-  const [checking, setChecking] = useState(true);
   const navigate = useNavigate();
 
   // Scroll effect for navbar transparency
@@ -56,7 +53,6 @@ const LandingPage = () => {
       } else {
         setBetaApproved(null);
       }
-      setChecking(false);
     };
     fetchBetaApproved();
   }, [user]);
@@ -141,10 +137,6 @@ const LandingPage = () => {
     await onRequestEarlyAccess(form);
   };
 
-  // Navigation logic
-  const handleDashboard = () => navigate('/dashboard');
-  const handleSignOut = () => {/* sign out logic here */};
-
   const openCalendly = () => {
     if (window.Calendly) {
       window.Calendly.initPopupWidget({
@@ -207,7 +199,7 @@ const LandingPage = () => {
             </p>
             <div className="cta-buttons">
               <button className="cta-button primary" onClick={() => setShowModal(true)}>Get Early Access</button>
-              <button className="cta-button secondary" onClick={openCalendly}>Schedule Demo</button>
+              <button className="cta-button secondary" onClick={openCalendly}>Book a Demo</button>
             </div>
           </div>
         </div>
@@ -357,7 +349,7 @@ const LandingPage = () => {
           <div className="final-cta-card">
             <div className="final-cta-buttons-row">
               <button className="cta-button primary" onClick={() => setShowModal(true)}>Get Early Access</button>
-              <button className="cta-button secondary" onClick={openCalendly}>Schedule Demo</button>
+              <button className="cta-button secondary" onClick={openCalendly}>Book a Demo</button>
             </div>
             <div className="final-cta-features-row">
               <span className="final-cta-feature"><FaRegCheckCircle className="cta-check" />No disruption to existing tools</span>

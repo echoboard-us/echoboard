@@ -54,7 +54,7 @@ const SignUp = () => {
         return;
       }
       // Auto-approve if email is in beta_access_requests and approved
-      const { data: approvedRequest, error: requestError } = await supabase
+      const { data: approvedRequest } = await supabase
         .from('beta_access_requests')
         .select('id')
         .eq('email', email)

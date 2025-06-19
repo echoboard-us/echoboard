@@ -212,7 +212,9 @@ Schema:
   }
 };
 
-export default {
+const openaiService = {
   generateSurveyInsights,
   generateTeamInsights
 };
+
+export default openaiService;

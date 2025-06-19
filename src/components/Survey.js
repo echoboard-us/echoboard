@@ -583,7 +583,7 @@ const Survey = () => {
       const expiryDate = new Date();
       expiryDate.setDate(expiryDate.getDate() + 30);
       
-      const { data: tokenData, error } = await supabase
+      const { error } = await supabase
         .from('survey_share_links')
         .insert([{
           survey_id: surveyId,

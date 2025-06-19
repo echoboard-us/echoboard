@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import './PricingPage.css';
 import { FaCheck, FaLinkedin } from 'react-icons/fa';
-import { TbDeviceAnalytics, TbBrain, TbChartBar, TbMail } from 'react-icons/tb';
 
 // Individual plans
 const individualPlans = [

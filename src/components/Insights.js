@@ -10,17 +10,13 @@ import "./Insights.css";
 
 const InsightsModal = ({ survey, onClose }) => {
   const [loading, setLoading] = useState(true);
-  const [insights, setInsights] = useState(null);
   const [aiAnalysis, setAiAnalysis] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
-  const [responseData, setResponseData] = useState([]);
   const [newResponseAlert, setNewResponseAlert] = useState(false);
   
   const processInsights = useCallback(async (responseData) => {
     try {
       setLoading(true);
-      
-      const responseRate = responseData.length;
       
       const answersByQuestion = {};
       responseData.forEach(response => {
@@ -60,36 +56,6 @@ const InsightsModal = ({ survey, onClose }) => {
         }
       });
 
-      const insightData = {
-        keyMetrics: [
-          { 
-            label: "Total Submissions", 
-            value: responseRate.toString(),
-            trend: "up"
-          },
-          ...(responseRate > 0 ? [{
-            label: "Completion Rate", 
-            value: `${((responseData.filter(r => r.completed).length / responseRate) * 100).toFixed(0)}%`,
-            trend: "stable"
-          }] : []),
-          ...(calculateAverageTime(responseData) !== "N/A" ? [{
-            label: "Average Time",
-            value: calculateAverageTime(responseData),
-            trend: "neutral"
-          }] : [])
-        ],
-        questionInsights: Object.entries(questionMetrics).map(([questionId, metrics]) => {
-          const question = survey.questions.find(q => q.id === parseInt(questionId));
-          return {
-            question: question.question,
-            type: question.type,
-            metrics: metrics
-          };
-        })
-      };
-
-      setInsights(insightData);
-      
       if (responseData.length > 0) {
         setAiLoading(true);
         try {
@@ -124,7 +90,6 @@ const InsightsModal = ({ survey, onClose }) => {
           .eq('survey_id', survey.id);
 
         if (error) throw error;
-        setResponseData(data);
         await processInsights(data);
       } catch (error) {
         console.error('Error fetching responses:', error);
@@ -155,11 +120,7 @@ const InsightsModal = ({ survey, onClose }) => {
 
         if (!error) {
           setNewResponseAlert(true);
-          setResponseData(prev => {
-            const updatedResponses = [...prev, newResponse];
-            processInsights(updatedResponses);
-            return updatedResponses;
-          });
+          await processInsights([newResponse]);
         }
       })
       .subscribe();
@@ -175,17 +136,6 @@ const InsightsModal = ({ survey, onClose }) => {
       distribution[num] = (distribution[num] || 0) + 1;
     });
     return distribution;
-  };
-
-  const calculateAverageTime = (responseData) => {
-    const times = responseData
-      .filter(r => r.completed_at && r.created_at)
-      .map(r => new Date(r.completed_at) - new Date(r.created_at));
-    
-    if (times.length === 0) return "N/A";
-    
-    const avgSeconds = Math.floor((times.reduce((a, b) => a + b, 0) / times.length) / 1000);
-    return `${Math.floor(avgSeconds / 60)}m ${avgSeconds % 60}s`;
   };
 
   if (loading) {
