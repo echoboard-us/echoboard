@@ -21,7 +21,6 @@ import ProtectedRoute from './components/ProtectedRoute';
 import LandingPage from './components/LandingPage';
 import PricingPage from './components/PricingPage';
 import ContactPage from './components/ContactPage';
-import BetaAdmin from './components/BetaAdmin';
 import './App.css';
 import { supabase } from './supabaseClient';
 
@@ -79,7 +78,6 @@ function AppContent() {
       <Route path="/pricing" element={<PricingPage />} />
       <Route path="/contact" element={<ContactPage />} />
       <Route path="/survey/:surveyId" element={<SurveyResponse />} />
-      <Route path="/admin/beta" element={<BetaAdmin />} />
 
       <Route 
         path="/*" 
