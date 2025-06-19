@@ -92,7 +92,7 @@ const ContactPage = () => {
           <div className="nav-links">
             {/* <Link to="/pricing" className="nav-link">Pricing</Link> */}
             <Link to="/contact" className="nav-link">Contact</Link>
-            <Link to="/signin" className="cta-button">Sign In</Link>
+            <Link to="/signin" className="cta-button">Log in</Link>
             {!user || role === 'new' ? (
               <button className="sign-in-button" onClick={() => window.location.href = '/#early-access'}>Get Early Access</button>
             ) : null}

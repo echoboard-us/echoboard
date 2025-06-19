@@ -110,7 +110,7 @@ const PricingPage = () => {
           <div className="nav-links">
             <Link to="/pricing" className="nav-link">Pricing</Link>
             <Link to="/contact" className="nav-link">Contact</Link>
-            <Link to="/signin" className="sign-in-button">Sign In</Link>
+            <Link to="/signin" className="sign-in-button">Log in</Link>
           </div>
         </nav>
 

@@ -48,7 +48,7 @@ const SignIn = () => {
           <img src="/icon-transparent.png" alt="EchoBoard Logo" className="auth-logo-centered" />
         </Link>
         <h2 className="auth-title-centered">Welcome back</h2>
-        <div className="auth-subtitle-centered">Sign in to your EchoBoard account</div>
+        <div className="auth-subtitle-centered">Log in to your EchoBoard account</div>
         {error && <div className="auth-error">{error}</div>}
         <form onSubmit={handleSignIn} className="auth-form-centered">
           <div className="auth-input-centered">
@@ -59,7 +59,7 @@ const SignIn = () => {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              placeholder="Email"
+              placeholder="Enter your email"
               autoComplete="email"
             />
           </div>
@@ -71,12 +71,12 @@ const SignIn = () => {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              placeholder="Password"
+              placeholder="Enter your password"
               autoComplete="current-password"
             />
           </div>
           <button type="submit" className="auth-button-gradient" disabled={loading}>
-            {loading ? 'Signing In...' : 'Sign In'}
+            {loading ? 'Logging in...' : 'Log in'}
           </button>
         </form>
         <div className="auth-signup-link-centered">

@@ -127,7 +127,7 @@ const SignUp = () => {
           </button>
         </form>
         <div className="auth-signup-link-centered">
-          Already have an account? <Link to="/signin">Sign in</Link>
+          Already have an account? <Link to="/signin">Log in</Link>
         </div>
       </div>
     </div>

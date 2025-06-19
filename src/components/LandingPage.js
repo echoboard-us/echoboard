@@ -77,7 +77,7 @@ const LandingPage = () => {
 
       if (existingRequest) {
         if (existingRequest.status === 'approved') {
-          setFormError('You already have beta access! Please sign in to continue.');
+          setFormError('You already have beta access! Please log in to continue.');
         } else if (existingRequest.status === 'pending') {
           setFormError('You already have a pending request. We\'ll review it soon!');
         } else {
@@ -164,7 +164,7 @@ const LandingPage = () => {
           <div className="nav-links">
             {/* <Link to="/pricing" className="nav-link">Pricing</Link> */}
             <Link to="/contact" className="nav-link">Contact</Link>
-            <Link to="/signin" className="cta-button">Sign In</Link>
+            <Link to="/signin" className="cta-button">Log in</Link>
             {!user || betaApproved === null ? (
               <button className="sign-in-button" onClick={() => setShowModal(true)}>Get Early Access</button>
             ) : betaApproved ? (

@@ -81,7 +81,7 @@ const BetaAdmin = () => {
         <div style={{ padding: '2rem', textAlign: 'center' }}>
           <p>You need to be logged in with <strong>sashank.tadimeti@gmail.com</strong> to access this page.</p>
           <p>Current user: {user ? user.email : 'Not logged in'}</p>
-          <p><a href="/signin">Sign In</a> | <a href="/signup">Sign Up</a></p>
+          <p><a href="/signin">Log in</a> | <a href="/signup">Sign Up</a></p>
         </div>
       </div>
     );
