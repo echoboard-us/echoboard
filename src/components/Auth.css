@@ -365,10 +365,11 @@ html, body, #root {
 .auth-bg-centered {
   min-height: 100vh;
   width: 100vw;
-  background: linear-gradient(135deg, #f4f8ff 0%, #fff 100%);
+  background: linear-gradient(135deg, #e0e8ff 0%, #d4e0ff 25%, #d8c8ff 50%, #d4f0ff 75%, #f0f8ff 100%);
   display: flex;
   align-items: center;
   justify-content: center;
+  position: relative;
 }
 .auth-card-centered {
   background: #fff;
